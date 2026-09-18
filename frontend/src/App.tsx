@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +15,8 @@ import { PdfVorlageModal } from "./components/ui/PdfVorlageModal";
 import { TodoPanel } from "./components/ui/TodoPanel";
 import { VerbundPanel } from "./components/ui/VerbundPanel";
 import { DesktopSettingsModal } from "./components/ui/DesktopSettingsModal";
-import { isDesktopApp } from "./hooks/useDesktopApi";
+import { DbMissingOverlay } from "./components/ui/DbMissingOverlay";
+import { isDesktopApp, getDesktopApi } from "./hooks/getDesktopApi";
 import { Spinner } from "./components/ui/Spinner";
 import { GlobalSearch, type SuchZiel } from "./components/ui/GlobalSearch";
 import { TopBar, type StageId } from "./components/layout/TopBar";
@@ -140,6 +141,15 @@ function AppInner() {
   const [editTarget, setEditTarget] = useState<Liegenschaft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Liegenschaft | null>(null);
   const [, setParams] = useSearchParams();
+  const [dbMissingPath, setDbMissingPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDesktopApp()) return;
+    const api = getDesktopApi();
+    api.app_info().then((info) => {
+      if (info.dbMissing) setDbMissingPath(info.dbPath);
+    });
+  }, []);
 
   const { data: liegenschaften = [], isLoading } = useQuery({
     queryKey: ["liegenschaften"],
@@ -215,6 +225,10 @@ function AppInner() {
     const params: Record<string, string> = { tab: ziel.tab };
     if (ziel.periodeId !== null) params.periode = String(ziel.periodeId);
     setParams(params);
+  }
+
+  if (dbMissingPath) {
+    return <DbMissingOverlay dbPath={dbMissingPath} />;
   }
 
   return (

@@ -69,10 +69,18 @@ nk-tool/
 [pywebview](https://pywebview.flowrl.com/) + PyInstaller zu einer installierbaren App (macOS
 über `nk-tool.spec`, Windows über `nk-tool-windows.spec` + GitHub Actions, da kein lokaler
 Windows-Rechner vorhanden ist). Ein dauerhaftes Fenster über die gesamte Prozesslaufzeit —
-Import/Export/Zurücksetzen der Datenbank laufen über eine js_api-Brücke (`DesktopApi`) aus der
-normal laufenden React-UI heraus (Einstellungen-Dialog), nicht über ein separates
-Onboarding-Fenster. Details, Build-Anleitung und Architektur-Hintergrund (inkl. eines
-gefundenen und behobenen Freeze-Bugs) in [`desktop/README.md`](desktop/README.md).
+Import/Export/Zurücksetzen/Verknüpfen der Datenbank laufen über eine js_api-Brücke
+(`DesktopApi`) aus der normal laufenden React-UI heraus (Einstellungen-Dialog), nicht über ein
+separates Onboarding-Fenster.
+
+Speicherort ist entweder der App-Standardpfad oder eine frei gewählte externe Datei (z. B. ein
+iCloud-Ordner) — verknüpft über einen Zeiger (`db_location.json`), nie kopiert. Fehlt eine
+verknüpfte Datei beim Start (umbenannt/verschoben/Laufwerk fehlt), zeigt `DbMissingOverlay`
+einen blockierenden "Datei suchen"-Dialog (wie ein Link-Finder bei Medienprogrammen), bevor
+irgendein Bildschirm mit echten Daten erscheint.
+
+Details, Build-Anleitung und Architektur-Hintergrund (inkl. eines gefundenen und behobenen
+Freeze-Bugs) in [`desktop/README.md`](desktop/README.md).
 
 ## MCP-Server (LLM-Zugriff)
 

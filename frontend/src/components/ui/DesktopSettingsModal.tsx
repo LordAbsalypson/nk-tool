@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
-import { isDesktopApp, useDesktopApi } from "../../hooks/useDesktopApi";
+import { isDesktopApp, getDesktopApi } from "../../hooks/getDesktopApi";
 
 interface DesktopSettingsModalProps {
   open: boolean;
@@ -25,9 +25,12 @@ function formatBytes(n: number): string {
  * es kein pywebview-Bridge und keine lokale Datei zum Verwalten). */
 export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProps) {
   const desktop = isDesktopApp();
-  const api = desktop ? useDesktopApi() : null;
+  const api = desktop ? getDesktopApi() : null;
 
-  const [info, setInfo] = useState<{ version: string; platform: string; dbPath: string; dbSizeBytes: number; dbLabel: string } | null>(null);
+  const [info, setInfo] = useState<{
+    version: string; platform: string; dbPath: string; dbSizeBytes: number;
+    dbLabel: string; dbLinked: boolean;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,18 +39,21 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
   const [editingLabel, setEditingLabel] = useState(false);
 
   useEffect(() => {
-    if (open && api) {
-      api.app_info().then((i) => {
-        setInfo(i);
-        setLabelDraft(i.dbLabel);
-      }).catch(() => setInfo(null));
-    }
+    if (!open || !api) return;
+    api.app_info().then((i) => {
+      setInfo(i);
+      setLabelDraft(i.dbLabel);
+    }).catch(() => setInfo(null));
+  }, [open, api]);
+
+  const handleClose = () => {
     setError(null);
     setConfirmAction(null);
     setBusy(false);
     setRestarting(false);
     setEditingLabel(false);
-  }, [open, api]);
+    onClose();
+  };
 
   const saveLabel = async () => {
     if (!api) return;
@@ -60,7 +66,7 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
 
   if (!desktop || !api) {
     return (
-      <Modal open={open} title="Einstellungen" onClose={onClose}>
+      <Modal open={open} title="Einstellungen" onClose={handleClose}>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Datenbank-Verwaltung (Import/Export/Zurücksetzen) ist nur in der Desktop-App verfügbar,
           nicht im Browser-Dev-Modus.
@@ -90,6 +96,54 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
     setRestarting(true); // App startet jetzt neu (desktop/app.py::_schedule_restart)
   };
 
+  const handleLinkExisting = async () => {
+    setError(null);
+    const picked = await api.pick_import_file();
+    if (!picked.path) return;
+    setBusy(true);
+    const verify = await api.verify_import_file(picked.path);
+    if (!verify.ok) {
+      setBusy(false);
+      setError(verify.error ?? "Datei ungültig.");
+      return;
+    }
+    const result = await api.link_existing_file(picked.path);
+    if (!result.ok) {
+      setBusy(false);
+      setError(result.error ?? "Verknüpfen fehlgeschlagen.");
+      return;
+    }
+    setRestarting(true);
+  };
+
+  const handleChooseNewLocation = async () => {
+    setError(null);
+    setBusy(true);
+    const result = await api.choose_new_location();
+    if (!result.path) {
+      setBusy(false); // abgebrochen
+      return;
+    }
+    if (!result.ok) {
+      setBusy(false);
+      setError(result.error ?? "Speicherort konnte nicht angelegt werden.");
+      return;
+    }
+    setRestarting(true);
+  };
+
+  const handleUseDefaultLocation = async () => {
+    setError(null);
+    setBusy(true);
+    const result = await api.use_default_location();
+    if (!result.ok) {
+      setBusy(false);
+      setError(result.error ?? "Fehlgeschlagen.");
+      return;
+    }
+    setRestarting(true);
+  };
+
   const handleExport = async () => {
     setError(null);
     const dest = await api.pick_export_destination();
@@ -113,7 +167,7 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
   };
 
   return (
-    <Modal open={open} title="Einstellungen" onClose={onClose}>
+    <Modal open={open} title="Einstellungen" onClose={handleClose}>
       <div className="space-y-5">
         {busy && (
           <div className="text-sm text-blue-600 dark:text-blue-400">
@@ -156,23 +210,50 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
                   </button>
                 </div>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
-                {info.dbPath} ({formatBytes(info.dbSizeBytes)})
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                  {info.dbPath} ({formatBytes(info.dbSizeBytes)})
+                </p>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${info.dbLinked ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"}`}>
+                  {info.dbLinked ? "verknüpft" : "Standardspeicherort"}
+                </span>
+              </div>
             </div>
           )}
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleImport}>
-              Datenbank importieren …
+              Datei importieren (Kopie) …
             </button>
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleExport}>
-              Datenbank exportieren …
+              Exportieren …
             </button>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            Import ersetzt die aktive Datenbank — die bisherige wird archiviert, nicht gelöscht
+            Import kopiert eine Datei in den Standardspeicherort — die Quelle bleibt unangetastet.
+            Die bisherige aktive Datenbank wird dabei archiviert, nicht gelöscht
             (<code>archive/</code> im App-Datenverzeichnis).
           </p>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold mb-2">Speicherort</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Entweder im App-Datenverzeichnis (Standard) oder an einem selbst gewählten Ort
+            (z. B. ein iCloud-/Netzwerk-Ordner) — die App schreibt dann direkt dorthin, ohne Kopie.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleLinkExisting}>
+              Bestehende Datei verknüpfen (ohne Kopie) …
+            </button>
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleChooseNewLocation}>
+              Neuen Speicherort wählen …
+            </button>
+            {info?.dbLinked && (
+              <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleUseDefaultLocation}>
+                Standardspeicherort verwenden
+              </button>
+            )}
+          </div>
         </section>
 
         <section>

@@ -21,29 +21,55 @@ React-UI heraus laufen, nicht aus einem separaten Fenster.
 
 ```
 desktop/app.py
-  ├── app_data_dir()      – OS-spezifisches App-Datenverzeichnis
-  ├── verify_db()         – prüft Kern-Tabellen einer .db-Datei vor Import
-  ├── _archive_current_db() – verschiebt (nie löscht) die aktuelle DB nach archive/
+  ├── app_data_dir()        – OS-spezifisches App-Datenverzeichnis
+  ├── default_db_path()     – Standardspeicherort (<app-data>/nk_tool.db)
+  ├── read/write/clear_pointer() – <app-data>/db_location.json: Zeiger auf eine
+  │     verknüpfte externe .db-Datei (beliebiger Ort, z. B. iCloud-Ordner)
+  ├── resolve_active_db()   – (Pfad, fehlt?) — Standard oder verknüpfte Datei
+  ├── verify_db()           – prüft Kern-Tabellen einer .db-Datei vor Import/Verknüpfung
+  ├── _archive_current_db() – verschiebt (nie löscht) NUR die app-eigene Standarddatei
+  │     nach archive/ — eine verknüpfte externe Datei wird nie automatisch verschoben
   ├── _schedule_restart()   – os.execv-Neustart nach DB-Wechsel
-  ├── DesktopApi           – js_api-Klasse, aus der React-UI aufrufbar:
-  │     app_info, pick_import_file, verify_import_file, import_db,
+  ├── DesktopApi            – js_api-Klasse, aus der React-UI aufrufbar:
+  │     app_info, pick_import_file, verify_import_file, import_db (Kopie in
+  │     Standardspeicherort), link_existing_file (Verknüpfung ohne Kopie),
+  │     choose_new_location, use_default_location, locate_missing_file
+  │     ("Datei suchen" bei fehlender Verknüpfung), create_at_missing_location,
   │     create_new_db, reset_link, pick_export_destination, export_db,
-  │     open_external
-  └── main()               – Backend-Thread starten, EIN Fenster öffnen
+  │     set_db_label, open_external
+  └── main()                – Speicherort auflösen, Backend-Thread starten
+                              (Scratch-DB falls verknüpfte Datei fehlt), EIN Fenster öffnen
 ```
 
-Frontend-seitig: `frontend/src/hooks/useDesktopApi.ts` (Zugriff auf `window.pywebview.api`),
+Frontend-seitig: `frontend/src/hooks/getDesktopApi.ts` (Zugriff auf `window.pywebview.api`),
 `frontend/src/components/ui/DesktopSettingsModal.tsx` (Einstellungen-Dialog: DB-Info,
-Import/Export/Zurücksetzen, Doku-Links), eingebunden über einen Settings-Button in
-`Footer.tsx`. Erststart-Hinweis (keine Liegenschaft vorhanden) direkt in `App.tsx`.
+Name/Label, Speicherort-Verwaltung, Import/Export/Zurücksetzen, Doku-Links), eingebunden über
+einen Settings-Button in `Footer.tsx`. `frontend/src/components/ui/DbMissingOverlay.tsx` —
+blockierender Vollbild-Dialog, wenn die verknüpfte Datei beim Start fehlt (siehe unten).
+Erststart-Hinweis (keine Liegenschaft vorhanden) direkt in `App.tsx`.
 
-**"Session Resume"**: kein eigener Zustand nötig — die DB-Datei liegt dauerhaft im
-App-Datenverzeichnis, bleibt zwischen Starts erhalten. "Erster Start" wird rein daran erkannt,
-dass noch keine Liegenschaft existiert.
+### Speicherort: Standard oder frei wählbar ("Datei verknüpfen")
 
-**Rückwärtskompatibilität**: Import kopiert die Quelle (Original bleibt unangetastet), die
-bisherige aktive DB wird beim Wechsel nach `archive/<Zeitstempel>_nk_tool.db` verschoben, nie
-gelöscht — für "Neue Datenbank anlegen" und "Zurücksetzen" in den Einstellungen genauso.
+Zwei Modi, wie bei Medienverwaltungs-Software mit "Link Finder" (Datei fehlt → neu verknüpfen):
+
+1. **Standard**: keine Zeiger-Datei → `<app-data>/nk_tool.db`, von SQLAlchemy automatisch
+   angelegt. Import kopiert eine gewählte Datei hierher (Quelle bleibt unangetastet).
+2. **Verknüpft**: `<app-data>/db_location.json` zeigt auf eine beliebige `.db`-Datei irgendwo im
+   Dateisystem (z. B. ein iCloud-Ordner) — bleibt an ihrem Ort, wird nie kopiert/verschoben, die
+   App schreibt direkt hinein. Fehlt die Datei beim Start (umbenannt, iCloud noch nicht
+   synchronisiert, Laufwerk nicht eingesteckt), startet die App trotzdem (Backend gegen eine
+   Wegwerf-Scratch-DB) und zeigt sofort `DbMissingOverlay` — blockiert die restliche App, bis
+   entweder eine gültige Datei gefunden/verknüpft, eine neue an der erwarteten Stelle angelegt,
+   oder auf den Standardspeicherort zurückgefallen wird.
+
+**"Session Resume"**: kein eigener Zustand über den Speicherort-Zeiger hinaus nötig — die
+verknüpfte oder Standard-Datei bleibt zwischen Starts erhalten. "Erster Start" wird rein daran
+erkannt, dass noch keine Liegenschaft existiert.
+
+**Rückwärtskompatibilität**: Import/Verknüpfen fasst die Quelle nie schreibend an (Import
+kopiert, Verknüpfen liest nur den Pfad). Die bisherige **app-eigene** Standarddatei wird bei
+jedem Wechsel nach `archive/<Zeitstempel>_nk_tool.db` verschoben, nie gelöscht — eine verknüpfte
+externe Datei wird beim Trennen/Wechseln nie automatisch angefasst, nur der Zeiger ändert sich.
 
 ## Build (macOS, lokal)
 
@@ -80,9 +106,10 @@ open desktop/dist/NK-Tool.app
 desktop/dist/NK-Tool.app/Contents/MacOS/NK-Tool
 ```
 
-Ohne vorhandene `~/Library/Application Support/NK-Tool/nk_tool.db` zeigt die App direkt beim
-Start den Willkommens-Hinweis (neue Liegenschaft anlegen ODER bestehende Datenbank importieren
-über die Einstellungen).
+Ohne vorhandene `~/Library/Application Support/NK-Tool/nk_tool.db` (und ohne Verknüpfung) zeigt
+die App direkt beim Start den Willkommens-Hinweis (neue Liegenschaft anlegen ODER bestehende
+Datenbank importieren über die Einstellungen). Ist eine Verknüpfung gesetzt, deren Ziel fehlt,
+erscheint stattdessen `DbMissingOverlay` (siehe oben).
 
 ## App-Icon
 

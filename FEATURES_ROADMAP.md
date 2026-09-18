@@ -189,7 +189,7 @@ nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
    zunächst vermutet). Strukturell behoben: **ein** dauerhaftes Fenster über die ganze
    Prozesslaufzeit statt eines separaten Onboarding-Fensters; Import/Export/Zurücksetzen laufen
    jetzt aus der normal laufenden React-UI heraus (`DesktopSettingsModal.tsx`,
-   `useDesktopApi.ts`). Fix live am gebauten macOS-Bundle nachgestellt: Dateidialog öffnet
+   `getDesktopApi.ts`). Fix live am gebauten macOS-Bundle nachgestellt: Dateidialog öffnet
    jetzt korrekt (Screenshot-verifiziert), kein Freeze mehr.
 4. ✅ Session Resume — kein eigener Zustand nötig, DB-Datei bleibt im App-Datenverzeichnis
    erhalten; "erster Start" wird rein daran erkannt, dass noch keine Liegenschaft existiert.
@@ -206,3 +206,15 @@ nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
 10. ⬜ Ausführliches In-App-Tutorial/Schritt-für-Schritt-Anleitung (aktuell nur
    Willkommens-Hinweis + Doku-Links, kein geführter Ablauf).
 11. ⬜ Codesigning (bewusst zurückgestellt, siehe LEGAL_NOTES.md/Kostenfrage).
+12. ✅ Frei wählbarer Speicherort ("Datei verknüpfen", 2026-09-19): Datenbank muss nicht mehr
+    zwingend im App-Datenverzeichnis liegen — Nutzer kann eine bestehende `.db`-Datei an
+    beliebigem Ort (z. B. iCloud-Ordner) verknüpfen, ohne Kopie; die App schreibt dann direkt
+    dorthin. Verknüpfung läuft über einen Zeiger (`db_location.json`), nie über die Datei selbst.
+    Fehlt die verknüpfte Datei beim Start (umbenannt/verschoben/Laufwerk nicht verfügbar), zeigt
+    `DbMissingOverlay` einen blockierenden "Datei suchen"-Dialog (Link-Finder-Prinzip wie bei
+    Medienschnitt-Software) — mit Optionen: Datei suchen, neue DB genau dort anlegen, oder auf
+    Standardspeicherort zurückfallen. Nur die app-eigene Standarddatei wird bei einem Wechsel
+    automatisch archiviert (nie gelöscht); eine verknüpfte externe Datei fasst die App beim
+    Trennen/Wechseln nie an. Live end-to-end getestet: echte Produktions-DB an einen
+    selbst gewählten iCloud-Ordner verknüpft, App-Neustart liest korrekt von dort (Saldo-Werte
+    exakt wie zuvor bestätigt). Genauer Pfad bewusst nicht dokumentiert (privater Ordnername).
