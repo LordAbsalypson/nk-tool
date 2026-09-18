@@ -27,21 +27,34 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
   const desktop = isDesktopApp();
   const api = desktop ? useDesktopApi() : null;
 
-  const [info, setInfo] = useState<{ version: string; platform: string; dbPath: string; dbSizeBytes: number } | null>(null);
+  const [info, setInfo] = useState<{ version: string; platform: string; dbPath: string; dbSizeBytes: number; dbLabel: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"new" | "reset" | null>(null);
+  const [labelDraft, setLabelDraft] = useState("");
+  const [editingLabel, setEditingLabel] = useState(false);
 
   useEffect(() => {
     if (open && api) {
-      api.app_info().then(setInfo).catch(() => setInfo(null));
+      api.app_info().then((i) => {
+        setInfo(i);
+        setLabelDraft(i.dbLabel);
+      }).catch(() => setInfo(null));
     }
     setError(null);
     setConfirmAction(null);
     setBusy(false);
     setRestarting(false);
+    setEditingLabel(false);
   }, [open, api]);
+
+  const saveLabel = async () => {
+    if (!api) return;
+    await api.set_db_label(labelDraft);
+    setInfo((prev) => (prev ? { ...prev, dbLabel: labelDraft.trim() } : prev));
+    setEditingLabel(false);
+  };
 
   if (!open) return null;
 
@@ -117,9 +130,36 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
         <section>
           <h3 className="text-sm font-semibold mb-2">Datenbank</h3>
           {info && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 break-all">
-              {info.dbPath} ({formatBytes(info.dbSizeBytes)})
-            </p>
+            <div className="mb-3">
+              {editingLabel ? (
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    className="input text-sm py-1"
+                    value={labelDraft}
+                    onChange={(e) => setLabelDraft(e.target.value)}
+                    placeholder="z. B. „Jeversche Str. 15+15A — echte Daten“"
+                    autoFocus
+                    onKeyDown={(e) => e.key === "Enter" && saveLabel()}
+                  />
+                  <button className="btn btn-secondary btn-sm" onClick={saveLabel}>Speichern</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium">
+                    {info.dbLabel || "Kein Name vergeben"}
+                  </span>
+                  <button
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    onClick={() => setEditingLabel(true)}
+                  >
+                    {info.dbLabel ? "Umbenennen" : "Namen vergeben"}
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                {info.dbPath} ({formatBytes(info.dbSizeBytes)})
+              </p>
+            </div>
           )}
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleImport}>

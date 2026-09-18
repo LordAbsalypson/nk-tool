@@ -106,6 +106,21 @@ def verify_db(path: Path) -> tuple[bool, str]:
     return True, ""
 
 
+def _label_path(db_path: Path) -> Path:
+    return db_path.parent / "db_label.txt"
+
+
+def _read_db_label(db_path: Path) -> str:
+    p = _label_path(db_path)
+    if p.exists():
+        return p.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def _write_db_label(db_path: Path, label: str) -> None:
+    _label_path(db_path).write_text(label, encoding="utf-8")
+
+
 def _archive_current_db(db_path: Path) -> Path | None:
     """Verschiebt (nie löscht) eine bestehende DB nach archive/. Gibt den
     neuen Pfad zurück, oder None, wenn keine DB vorhanden war."""
@@ -145,7 +160,12 @@ class DesktopApi:
             "dbPath": str(self.db_path),
             "dbSizeBytes": self.db_path.stat().st_size if self.db_path.exists() else 0,
             "appDataDir": str(self.db_path.parent),
+            "dbLabel": _read_db_label(self.db_path),
         }
+
+    def set_db_label(self, label: str) -> dict:
+        _write_db_label(self.db_path, label.strip()[:80])
+        return {"ok": True}
 
     def pick_import_file(self) -> dict:
         window = webview.windows[0]
@@ -168,11 +188,13 @@ class DesktopApi:
             return {"ok": False, "error": err}
         _archive_current_db(self.db_path)
         shutil.copy2(src, self.db_path)  # Quelle bleibt unangetastet
+        _write_db_label(self.db_path, "")  # neue Daten -> alter Name passt nicht mehr
         _schedule_restart()
         return {"ok": True}
 
     def create_new_db(self) -> dict:
         _archive_current_db(self.db_path)
+        _write_db_label(self.db_path, "")
         _schedule_restart()
         return {"ok": True}
 

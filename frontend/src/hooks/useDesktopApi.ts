@@ -8,6 +8,7 @@ interface AppInfo {
   dbPath: string;
   dbSizeBytes: number;
   appDataDir: string;
+  dbLabel: string;
 }
 
 interface PickResult {
@@ -21,6 +22,7 @@ interface OkResult {
 
 interface DesktopApi {
   app_info: () => Promise<AppInfo>;
+  set_db_label: (label: string) => Promise<OkResult>;
   pick_import_file: () => Promise<PickResult>;
   verify_import_file: (path: string) => Promise<OkResult>;
   import_db: (path: string) => Promise<OkResult>;
