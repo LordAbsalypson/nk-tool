@@ -542,3 +542,27 @@ class MieterKostenanteil(Base):
     override_wert: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     override_begruendung: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     berechnet_am: Mapped[str] = mapped_column(String, nullable=False, default=_now_iso)
+
+
+class AppAuth(Base):
+    """Optionaler Passwortschutz für diese Datenbank — Singleton, höchstens
+    eine Zeile. Existiert keine Zeile (oder ``password_hash`` ist NULL), ist
+    kein Passwort gesetzt und alle Endpunkte sind wie bisher frei zugänglich
+    (Backward-Compatibility: bestehende Installationen ohne Passwort bleiben
+    unverändert). Gilt pro Datenbank-Datei, nicht global — wer eine andere
+    .db verknüpft, bekommt deren eigenen (oder keinen) Schutz.
+
+    ``password_hash``/``recovery_code_hash`` sind PBKDF2-HMAC-SHA256 mit
+    zufälligem Salt (siehe ``auth.py``), nie Klartext. Der Recovery-Code
+    selbst wird nur einmal beim Setup zurückgegeben, danach nirgends im
+    Klartext gespeichert — Verlust bedeutet: nur noch das Passwort öffnet
+    die Datenbank."""
+
+    __tablename__ = "app_auth"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    recovery_code_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    token_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    erstellt_am: Mapped[str] = mapped_column(String, nullable=False, default=_now_iso)
+    geaendert_am: Mapped[Optional[str]] = mapped_column(String, nullable=True)

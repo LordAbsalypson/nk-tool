@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
 import { isDesktopApp, getDesktopApi } from "../../hooks/getDesktopApi";
+import { SecuritySettings } from "./SecuritySettings";
 
 interface DesktopSettingsModalProps {
   open: boolean;
@@ -67,11 +68,15 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
   if (!desktop || !api) {
     return (
       <Modal open={open} title="Einstellungen" onClose={handleClose}>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Datenbank-Verwaltung (Import/Export/Zurücksetzen) ist nur in der Desktop-App verfügbar,
-          nicht im Browser-Dev-Modus.
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Datenbank-Speicherort-Verwaltung (Import/Export/Zurücksetzen) ist nur in der
+          Desktop-App verfügbar, nicht im Browser-Dev-Modus. Passwortschutz funktioniert hier
+          genauso wie in der Desktop-App.
         </p>
-        <LinksSection openExternal={(url) => window.open(url, "_blank")} />
+        <div className="space-y-5">
+          <SecuritySettings />
+          <LinksSection openExternal={(url) => window.open(url, "_blank")} />
+        </div>
       </Modal>
     );
   }
@@ -285,6 +290,8 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
             </div>
           )}
         </section>
+
+        <SecuritySettings />
 
         <LinksSection openExternal={(url) => api.open_external(url)} />
 

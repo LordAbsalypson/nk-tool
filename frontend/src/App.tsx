@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BrowserRouter, useSearchParams } from "react-router-dom";
-import { api } from "./api/client";
+import { api, getAuthToken, setUnauthorizedHandler } from "./api/client";
 import type { Liegenschaft } from "./types";
 import { useToast } from "./hooks/useToast";
 import { useDarkMode } from "./hooks/useDarkMode";
@@ -16,6 +16,7 @@ import { TodoPanel } from "./components/ui/TodoPanel";
 import { VerbundPanel } from "./components/ui/VerbundPanel";
 import { DesktopSettingsModal } from "./components/ui/DesktopSettingsModal";
 import { DbMissingOverlay } from "./components/ui/DbMissingOverlay";
+import { LoginOverlay } from "./components/ui/LoginOverlay";
 import { isDesktopApp, getDesktopApi } from "./hooks/getDesktopApi";
 import { Spinner } from "./components/ui/Spinner";
 import { GlobalSearch, type SuchZiel } from "./components/ui/GlobalSearch";
@@ -142,18 +143,29 @@ function AppInner() {
   const [deleteTarget, setDeleteTarget] = useState<Liegenschaft | null>(null);
   const [, setParams] = useSearchParams();
   const [dbMissingPath, setDbMissingPath] = useState<string | null>(null);
+  const [authNeeded, setAuthNeeded] = useState<boolean | null>(null); // null = wird geprüft
 
   useEffect(() => {
     if (!isDesktopApp()) return;
-    const api = getDesktopApi();
-    api.app_info().then((info) => {
+    const desktopApi = getDesktopApi();
+    desktopApi.app_info().then((info) => {
       if (info.dbMissing) setDbMissingPath(info.dbPath);
     });
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setAuthNeeded(true));
+    api
+      .get<{ protected: boolean }>("/auth/status")
+      .then((status) => setAuthNeeded(status.protected && !getAuthToken()))
+      .catch(() => setAuthNeeded(false));
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const { data: liegenschaften = [], isLoading } = useQuery({
     queryKey: ["liegenschaften"],
     queryFn: () => api.get<Liegenschaft[]>("/liegenschaften"),
+    enabled: authNeeded === false,
     select: (data) => {
       if (selectedId === null && data.length > 0) {
         setSelectedId(data[0].id);
@@ -229,6 +241,18 @@ function AppInner() {
 
   if (dbMissingPath) {
     return <DbMissingOverlay dbPath={dbMissingPath} />;
+  }
+
+  if (authNeeded) {
+    return <LoginOverlay onSuccess={() => setAuthNeeded(false)} />;
+  }
+
+  if (authNeeded === null) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner />
+      </div>
+    );
   }
 
   return (

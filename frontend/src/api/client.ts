@@ -1,6 +1,33 @@
 import type { ApiResponse } from "../types";
 
 const BASE = "/api/v1";
+const TOKEN_STORAGE_KEY = "nk-tool-auth-token";
+
+/** sessionStorage statt localStorage: Token verfällt beim Schließen des Tabs/
+ * Fensters — bei der nächsten Session ist erneutes Einloggen nötig, passend
+ * zum "Login pro Datenbank"-Modell (ohnehin per Server 12h gültig). */
+let authToken: string | null = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (token) sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+  else sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+/** App.tsx registriert hier, um bei einer 401-Antwort (z. B. abgelaufenes
+ * Token) sofort wieder den Login-Dialog zu zeigen, egal welcher Request es war. */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
+function authHeaders(): Record<string, string> {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
 
 async function request<T>(
   method: string,
@@ -9,9 +36,17 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...authHeaders(),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  if (res.status === 401) {
+    setAuthToken(null);
+    onUnauthorized?.();
+  }
 
   const json: ApiResponse<T> = await res.json();
 
@@ -27,8 +62,13 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   formData.append("file", file);
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
+  if (res.status === 401) {
+    setAuthToken(null);
+    onUnauthorized?.();
+  }
   const json: ApiResponse<T> = await res.json();
   if (!res.ok || !json.ok) {
     throw new Error(json.error ?? `HTTP ${res.status}`);

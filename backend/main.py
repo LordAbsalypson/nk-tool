@@ -3,13 +3,14 @@ import logging
 
 from sqlalchemy import text
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from database import Base, engine
 from routers import (
+    auth as auth_router,
     checkup,
     kostenpositionen,
     kostenarten,
@@ -27,6 +28,7 @@ from routers import (
     zaehler,
     zaehlerstaende,
 )
+from routers.auth import require_auth
 
 Base.metadata.create_all(bind=engine)
 
@@ -119,22 +121,28 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 PREFIX = "/api/v1"
 
-app.include_router(liegenschaften.router, prefix=PREFIX)
-app.include_router(wohnungen.router, prefix=PREFIX)
-app.include_router(mieter.router, prefix=PREFIX)
-app.include_router(zaehler.router, prefix=PREFIX)
-app.include_router(kostenarten.router, prefix=PREFIX)
-app.include_router(perioden.router, prefix=PREFIX)
-app.include_router(kostenpositionen.router, prefix=PREFIX)
-app.include_router(zaehlerstaende.router, prefix=PREFIX)
-app.include_router(vorauszahlungen.router, prefix=PREFIX)
-app.include_router(todos.router, prefix=PREFIX)
-app.include_router(validierung.router, prefix=PREFIX)
-app.include_router(verbund.router, prefix=PREFIX)
-app.include_router(suche.router, prefix=PREFIX)
-app.include_router(checkup.router, prefix=PREFIX)
-app.include_router(schluessel_abrechnung.router, prefix=PREFIX)
-app.include_router(pdf_vorlage.router, prefix=PREFIX)
+# auth-Router selbst bleibt ungeschützt (sonst könnte sich niemand einloggen).
+app.include_router(auth_router.router, prefix=PREFIX)
+
+# Alle Datenrouter hinter require_auth — greift nur, wenn ein Passwort gesetzt
+# ist (models.AppAuth), sonst No-Op (Backward-Compatibility, siehe auth.py).
+_protected = [Depends(require_auth)]
+app.include_router(liegenschaften.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(wohnungen.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(mieter.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(zaehler.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(kostenarten.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(perioden.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(kostenpositionen.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(zaehlerstaende.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(vorauszahlungen.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(todos.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(validierung.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(verbund.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(suche.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(checkup.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(schluessel_abrechnung.router, prefix=PREFIX, dependencies=_protected)
+app.include_router(pdf_vorlage.router, prefix=PREFIX, dependencies=_protected)
 
 
 @app.get("/api/health")
