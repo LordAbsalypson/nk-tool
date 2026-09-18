@@ -70,9 +70,16 @@ RSYNC_FILTERS=(
 )
 
 echo "Synchronisiere $PRIVATE_DIR -> $PUBLIC_DIR (Whitelist, siehe Skript)"
+# ACHTUNG: --delete-excluded NIE verwenden — rsync behandelt dabei auch
+# .git/ als "excluded" (matcht keine der obigen --include-Regeln) und löscht
+# es trotz Protect-Filter (real passiert, 2026-09-18: lokaler Klon verloren,
+# zum Glück war der Push vorher schon durch). Stray __pycache__/*.pyc werden
+# stattdessen gezielt per find aufgeräumt, niemals via rsync --delete-excluded.
 rsync -av --delete \
   "${RSYNC_FILTERS[@]}" \
   "$PRIVATE_DIR/" "$PUBLIC_DIR/"
+
+find "$PUBLIC_DIR/backend" -depth \( -name "__pycache__" -o -name "*.pyc" \) -exec rm -rf {} +
 
 cd "$PUBLIC_DIR"
 git add -A
