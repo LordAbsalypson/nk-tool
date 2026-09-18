@@ -27,7 +27,26 @@ fi
 # Whitelist: nur App-Code + generische, geprüfte Doku. Alles andere (CLAUDE.md,
 # NEBENKOSTEN_STATUS.md, PROJEKT.md, temp_ista_analyse.md, GOAL.md-Backups, .db,
 # uploads/, backup_safe/, abrechnungen_pdf/) bleibt bewusst NUR im privaten Repo.
-RSYNC_INCLUDES=(
+#
+# WICHTIG: rsync wertet Filterregeln in Reihenfolge aus (erste passende Regel
+# gewinnt) — generierte/sensible Verzeichnisse müssen daher VOR den rekursiven
+# `***`-Includes ausgeschlossen werden, sonst greift der Exclude nicht.
+RSYNC_FILTERS=(
+  --exclude="*.db"
+  --exclude="*.db-journal"
+  --exclude="__pycache__/"
+  --exclude="*.pyc"
+  --exclude=".pytest_cache/"
+  --exclude=".mypy_cache/"
+  --exclude="node_modules/"
+  --exclude="dist/"
+  --exclude=".vite/"
+  --exclude="uploads/"
+  --exclude="backup_safe/"
+  --exclude="abrechnungen_pdf/"
+  --exclude=".venv/"
+  --exclude="venv/"
+  --exclude="*.egg-info/"
   --include="/backend/***"
   --include="/frontend/src/***"
   --include="/frontend/public/***"
@@ -47,31 +66,12 @@ RSYNC_INCLUDES=(
   --include="/AI_COMMANDS.md"
   --include="/GOAL.md"
   --include="/.gitignore"
-)
-
-RSYNC_EXCLUDES=(
-  --exclude="*.db"
-  --exclude="*.db-journal"
-  --exclude="__pycache__/"
-  --exclude="*.pyc"
-  --exclude=".pytest_cache/"
-  --exclude=".mypy_cache/"
-  --exclude="node_modules/"
-  --exclude="dist/"
-  --exclude=".vite/"
-  --exclude="uploads/"
-  --exclude="backup_safe/"
-  --exclude="abrechnungen_pdf/"
-  --exclude=".venv/"
-  --exclude="venv/"
-  --exclude="*.egg-info/"
   --exclude="*"
 )
 
 echo "Synchronisiere $PRIVATE_DIR -> $PUBLIC_DIR (Whitelist, siehe Skript)"
 rsync -av --delete \
-  "${RSYNC_INCLUDES[@]}" \
-  "${RSYNC_EXCLUDES[@]}" \
+  "${RSYNC_FILTERS[@]}" \
   "$PRIVATE_DIR/" "$PUBLIC_DIR/"
 
 cd "$PUBLIC_DIR"
