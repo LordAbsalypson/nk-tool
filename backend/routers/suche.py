@@ -283,7 +283,7 @@ def suche(
                     liegenschaft_id=w.liegenschaft_id, stage=1, tab="wohnungen",
                     periode_id=None,
                     # Namens-Treffer addiert sich auf den Feld-Treffer, damit
-                    # "vorauszahlung repnak" Repnak nach oben zieht statt ihn
+                    # "vorauszahlung müller" Müller nach oben zieht statt ihn
                     # zwischen allen Mietern mit gleichem Feld-Score zu begraben.
                     score=(95 if "vorauszahlung" in felder else 30) + (60 if mieter_namens_treffer else 0),
                 ))

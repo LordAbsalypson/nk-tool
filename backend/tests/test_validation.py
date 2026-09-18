@@ -16,7 +16,7 @@ from schemas import (
     WohnungUpdate,
 )
 
-_LIEG_DEFAULTS = dict(name="Test", adresse="Str. 1", plz="26419", ort="Schortens")
+_LIEG_DEFAULTS = dict(name="Test", adresse="Str. 1", plz="12345", ort="Musterstadt")
 
 
 # ── 3.2.1 Wohnung.flaeche_m2 > 0 ─────────────────────────────────────────────

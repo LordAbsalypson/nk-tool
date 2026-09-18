@@ -221,7 +221,7 @@ export function PdfVorlageModal({
                   <label className="label">Name</label>
                   <input
                     className="input"
-                    placeholder="z. B. Birgit Paar"
+                    placeholder="z. B. Max Mustermann"
                     {...register("absender_name")}
                   />
                 </div>

@@ -310,7 +310,7 @@ function VerbundNameForm({
         <label className="label">Name des Verbunds</label>
         <input
           className="input"
-          placeholder="z.B. Jeversche Str. 15+15A"
+          placeholder="z.B. Musterstraße 1+2"
           {...register("name")}
         />
         {errors.name && <p className="error-msg">{errors.name.message}</p>}

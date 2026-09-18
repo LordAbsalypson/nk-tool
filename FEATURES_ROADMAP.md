@@ -102,9 +102,9 @@ Geprüft gegen aktuellen Code (nicht nur gegen die CLAUDE.md-Beschreibung):
 ## 3. Roadmap-Ideen (Zukunft)
 
 - **CSV/Excel-Import für Zählerstände**: Kleinvermieter erfassen Ablesungen oft
-  schon in Excel/Handy-Notizen (siehe Oma-Handschrift → Excel-Workflow in
-  CLAUDE.md) — ein Import würde die doppelte manuelle Übertragung ins Tool
-  entfallen lassen und Tippfehler reduzieren.
+  schon handschriftlich oder in Excel/Handy-Notizen — ein Import würde die
+  doppelte manuelle Übertragung ins Tool entfallen lassen und Tippfehler
+  reduzieren.
 - **E-Mail-Versand der Einzelabrechnungen direkt aus dem Tool**: Aktuell nur Druck
   via `window.print()`. Für Mieter, die nicht vor Ort sind, spart ein
   Direktversand (PDF-Anhang, ggf. über bestehenden Gmail-Zugang) den Umweg über
@@ -146,14 +146,14 @@ Löst die aktuelle Schwäche "kein Auth-Layer, nur Dev-Server" strukturell: aus 
 Web-App-Setup (`uvicorn --reload` + `npm run dev`) wird eine installierbare native App ohne
 sichtbaren localhost-Server, ohne Netzwerk-Exposure per Default.
 
-**Technischer Ansatz (mit JP abgestimmt):** [pywebview](https://pywebview.flowrl.com/) +
+**Technischer Ansatz (mit dem Maintainer abgestimmt):** [pywebview](https://pywebview.flowrl.com/) +
 PyInstaller — kein neues Toolchain (Rust/Node) nötig, Backend bleibt Python/FastAPI im selben
 Prozess, React-Frontend wird als statischer Production-Build ausgeliefert, `pywebview` öffnet ein
 natives Fenster (WebKit auf macOS, WebView2 auf Windows) statt eines Browser-Tabs. Verworfen:
 Electron (zu schwer, "schlank" war explizite Anforderung), Tauri (Rust-Toolchain + Python-Sidecar
 nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
 
-**Anforderungen (JP, 2026-09-18):**
+**Anforderungen (2026-09-18):**
 1. **Installierbar auf macOS und Windows** — kein Terminal, kein `npm run dev` für Endnutzer.
 2. **Production-Build statt Dev-Server**, aber **rückwärtskompatibel**: bestehende
    `backend/nk_tool.db` muss beim ersten Start der App automatisch gefunden/übernommen werden,

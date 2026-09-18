@@ -483,7 +483,7 @@ def lade_personen_split_pdf(
     return _serve_pdf(ordner, datei)
 
 
-# ── Sammelabrechnung: Jahresübersicht pro Liegenschaft (für Oma) ─────────────
+# ── Sammelabrechnung: Jahresübersicht pro Liegenschaft ───────────────────────
 
 @router.post("/perioden/{periode_id}/sammelabrechnung/pdf")
 def erzeuge_sammelabrechnung(

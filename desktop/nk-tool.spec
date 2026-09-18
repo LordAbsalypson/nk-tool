@@ -84,7 +84,7 @@ app = BUNDLE(
     coll,
     name="NK-Tool.app",
     icon=os.path.join(SPECPATH, "icon.icns"),
-    bundle_identifier="de.paar.nk-tool",
+    bundle_identifier="io.github.lordabsalypson.nktool",
     info_plist={
         "CFBundleName": "NK-Tool",
         "CFBundleDisplayName": "NK-Tool",

@@ -182,7 +182,7 @@ export function GlobalSearch({ onNavigate, onSaved, onError }: Props) {
             setOffen(true);
           }}
           onFocus={() => setOffen(true)}
-          placeholder={'Suchen… z. B. "Whg 1 Strompreis" oder "Janßen"'}
+          placeholder={'Suchen… z. B. "Whg 1 Strompreis" oder "Mustermann"'}
           className="w-full pl-7 pr-14 py-1.5 text-sm rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white"
         />
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 border border-gray-200 rounded px-1 pointer-events-none select-none">

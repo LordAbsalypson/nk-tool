@@ -12,7 +12,7 @@ interface Props {
   onError: (msg: string) => void;
 }
 
-/** Jahresübersicht über eine ganze Liegenschaft für Oma — eine Zeile je
+/** Jahresübersicht über eine ganze Liegenschaft — eine Zeile je
  *  Wohnung, Legende mit den €-Sätzen oben statt Wiederholung in jeder Zeile.
  *  Reine Zusatz-Funktion, ändert nichts an den einzelnen Mieter-Abrechnungen. */
 export function SammelabrechnungModal({ open, onClose, periodeId, liegenschaftName, onError }: Props) {

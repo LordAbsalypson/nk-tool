@@ -105,9 +105,10 @@ Voraussetzungen: Python 3.12, Node.js (aktuelle LTS-Version), npm.
 
 ### Haftungsausschluss
 
-Idee und Konzept stammen von einer Privatperson (dem Projekt-Owner), entwickelt
-in Zusammenarbeit mit tatsächlich betroffenen Vermietern. Die **Code-Umsetzung
-entstand mit Unterstützung generativer KI (Claude von Anthropic)**.
+**Idee, Konzept & Architektur: [LordAbsalypson](https://github.com/LordAbsalypson). Code geschrieben
+mit KI-Unterstützung (Claude von Anthropic).** Entwickelt in Zusammenarbeit mit tatsächlich
+betroffenen Vermietern — erwarte entsprechend Ecken und Kanten, keinen durchgehend handgeprüften
+Code.
 
 Dieses Tool wird ohne Gewähr bereitgestellt und ersetzt **keine** rechtliche
 oder steuerliche Beratung. Es ist kein Ersatz für einen Steuerberater oder eine
@@ -239,10 +240,9 @@ Prerequisites: Python 3.12, a current Node.js LTS release, npm.
 
 ### Disclaimer
 
-The idea and concept originate from a private individual (the project owner),
-developed in cooperation with landlords who actually use it for their own
-properties. The **code implementation was done with the assistance of
-generative AI (Claude by Anthropic)**.
+**Idea, concept & architecture: [LordAbsalypson](https://github.com/LordAbsalypson). Code written
+with AI assistance (Claude by Anthropic).** Developed in cooperation with landlords who actually
+use it for their own properties — expect rough edges, not uniformly hand-reviewed code.
 
 This tool is provided with no warranty and does not constitute legal or tax
 advice. It is not a substitute for a professional Steuerberater (tax advisor)

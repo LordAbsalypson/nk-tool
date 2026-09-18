@@ -191,7 +191,7 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
                     className="input text-sm py-1"
                     value={labelDraft}
                     onChange={(e) => setLabelDraft(e.target.value)}
-                    placeholder="z. B. „Jeversche Str. 15+15A — echte Daten“"
+                    placeholder="z. B. „Musterstraße 1+2 — echte Daten“"
                     autoFocus
                     onKeyDown={(e) => e.key === "Enter" && saveLabel()}
                   />

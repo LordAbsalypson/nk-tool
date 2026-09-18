@@ -4,7 +4,7 @@
 > technisch orientierte Risikoübersicht zur Vorbereitung eines Gesprächs mit einem Rechtsanwalt
 > (empfohlen: Fachanwalt für Miet-/IT-Recht) vor der Veröffentlichung dieses Projekts als
 > Open Source. Keine Aussage in diesem Dokument ersetzt anwaltliche Prüfung im Einzelfall.
-> Stand: 2026-09-18. Autor: JP (Projektinhaber), Analyse erstellt mit KI-Unterstützung (Claude).
+> Stand: 2026-09-18. Autor: LordAbsalypson (Projektinhaber), Analyse erstellt mit KI-Unterstützung (Claude).
 
 ---
 
@@ -29,12 +29,13 @@
 (reiner Code-Release, keine echten Daten im Repo, kein Betrieb durch den Autor).
 
 **🔴 Kritischer Nachtrag (gefunden 2026-09-18, nicht durch den ursprünglichen DB-Check erfasst):**
-`CLAUDE.md` und `NEBENKOSTEN_STATUS.md` sind **getrackte Markdown-Dateien** (kein `.db`, kein
-Upload) und enthalten im Klartext echte Mieternamen (z. B. "Janßen", "Alert", "Ludwig"), die volle
-Adresse der Liegenschaften (Jeversche Str. 15 + 15A, Schortens) sowie konkrete Vorauszahlungs-/
-Nachzahlungsbeträge. Das ist **personenbezogene Daten Dritter im Klartext-Quellcode** — der
-`.gitignore`-Check auf `*.db`/`uploads/`/`backup_safe/` deckt diesen Fall nicht ab, weil es sich
-um reguläre, absichtlich getrackte Dokumentationsdateien handelt.
+Im **privaten** Betriebs-Repo gibt es getrackte Markdown-Dateien (kein `.db`, kein Upload), die
+im Klartext echte Mieternamen, die volle Adresse der Liegenschaften sowie konkrete
+Vorauszahlungs-/Nachzahlungsbeträge enthalten. Das ist **personenbezogene Daten Dritter im
+Klartext-Quellcode** — der `.gitignore`-Check auf `*.db`/`uploads/`/`backup_safe/` deckt diesen
+Fall nicht ab, weil es sich um reguläre, absichtlich getrackte Dokumentationsdateien handelt.
+Diese Dateien sind bewusst NICHT Teil dieses (öffentlichen) Repos — siehe
+`scripts/sync-to-public.sh` Whitelist.
 
 **Einschätzung für einen Public-Release: hoch**, solange diese Dateien unverändert enthalten sind.
 Für das aktuelle **private** Repo unkritisch (kein Dritt-Zugriff).
@@ -113,7 +114,7 @@ höher als reines Utility-Tool, niedriger als kommerzielle Software mit Support-
 - Rein KI-generierter Code ohne menschliche schöpferische Leistung ist nach deutschem Urheberrecht
   (§ 2 Abs. 2 UrhG, Schöpfungshöhe durch natürliche Person) **derzeit nicht abschließend geklärt**
   hinsichtlich Urheberrechtsschutz — UNVERIFIED, keine höchstrichterliche Entscheidung bekannt.
-- **Praktisch unproblematisch für dieses Projekt**: Der menschliche Kurator (JP), der Anforderungen
+- **Praktisch unproblematisch für dieses Projekt**: Der menschliche Kurator (LordAbsalypson), der Anforderungen
   definiert, Architektur-Entscheidungen trifft, Code kuratiert/prüft und die Lizenzvergabe entscheidet,
   gilt regelmäßig als hinreichender kreativer Beitrag, um über das Gesamtwerk (Zusammenstellung,
   Struktur, Auswahl) Rechte zu halten und eine Lizenz zu vergeben — unabhängig von der ungeklärten
@@ -124,7 +125,7 @@ höher als reines Utility-Tool, niedriger als kommerzielle Software mit Support-
 **Einschätzung für dieses Projekt: niedrig**
 
 **Handlungsempfehlung:**
-- Im README transparent deklarieren, z. B.: "Idea, concept & architecture by [JP]. Code written
+- Im README transparent deklarieren, z. B.: "Idea, concept & architecture by [LordAbsalypson]. Code written
   with AI assistance (Claude)." — das reduziert Erwartungshaltung ("perfekter, handgeprüfter Code")
   und damit faktisch auch Haftungsrisiko, eher als es zu verschweigen.
 
@@ -182,7 +183,7 @@ für ein privates/gemeinnütziges Nischentool (Vermieter-Community) ist das i. d
    DSGVO-Verantwortlicher" als eigener Abschnitt.
 3. **README-Formulierung**: Keine Konkurrenznennung ("ista"), keine Begriffe wie "rechtssicher"/
    "geprüft"/"garantiert".
-4. **KI-Transparenz**: Kurzer Hinweis "idea & concept by [JP], code assisted by generative AI".
+4. **KI-Transparenz**: Kurzer Hinweis "idea & concept by [LordAbsalypson], code assisted by generative AI".
 5. **CI-Absicherung**: Automatisierter Check gegen versehentliches Commit von `*.db`/`uploads/`/
    `backup_safe/` (zusätzlich zur bestehenden, aktuell sauberen `.gitignore`).
 6. **Vor Veröffentlichung**: Anwaltliche Prüfung von LICENSE + README-Disclaimer-Text, insbesondere

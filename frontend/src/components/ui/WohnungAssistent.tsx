@@ -233,7 +233,7 @@ export function WohnungAssistent({ open, liegenschaftId, onClose, onSaved, onErr
                 <label className="label">Name des Mieters</label>
                 <input
                   className="input"
-                  placeholder="z. B. Doris Alert"
+                  placeholder="z. B. Max Mustermann"
                   value={mieterName}
                   onChange={(e) => setMieterName(e.target.value)}
                   autoFocus
