@@ -63,6 +63,21 @@ nk-tool/
 > über `schluessel_engine.py` ist der einzige aktive Berechnungspfad. Der historische Code liegt
 > im Branch `legacy/stage3-engine` des privaten Repos.
 
+## Desktop-App
+
+`desktop/app.py` + `desktop/nk-tool.spec` bündeln Backend + Frontend-Production-Build via
+[pywebview](https://pywebview.flowrl.com/) + PyInstaller zu einer installierbaren `.app`
+(macOS; Windows geplant). Details, Build-Anleitung und Erststart-Verhalten in
+[`desktop/README.md`](desktop/README.md).
+
+## MCP-Server (LLM-Zugriff)
+
+`mcp-server/` gibt LLM-Clients (Claude Code, Claude Desktop, andere MCP-Clients) Zugriff auf die
+laufende NK-Tool-API und eine schreibgeschützte DB-Sicht — zwei generische Tools
+(`request`, `query_db`) statt ~100 einzelner Wrapper, plus eine automatisch generierte, kompakte
+API-Referenz (`mcp-server/API_REFERENCE.md`, ~160 Zeilen statt der vollständigen
+`AI_COMMANDS.md`-curl-Referenz). Details in [`mcp-server/README.md`](mcp-server/README.md).
+
 ## Key Patterns
 
 ### API-Antwort-Envelope

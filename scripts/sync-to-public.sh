@@ -50,6 +50,7 @@ RSYNC_FILTERS=(
   --exclude="build/"
   --include="/backend/***"
   --include="/desktop/***"
+  --include="/mcp-server/***"
   --include="/frontend/src/***"
   --include="/frontend/public/***"
   --include="/frontend/package.json"
