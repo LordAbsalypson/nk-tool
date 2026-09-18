@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS variables for light / dark ──────────────────────────────────────── */
+:root {
+  --bg-page:    #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-subtle:  #f8fafc;
+  --shadow-card: 0 1px 4px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+}
+
+html.dark {
+  --bg-page:    #0f172a;
+  --bg-surface: #1e293b;
+  --bg-subtle:  #0f172a;
+  --shadow-card: 0 1px 4px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+}
+
+/* ── Custom component classes ────────────────────────────────────────────── */
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-sm
+           transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1;
+  }
+  .btn-primary   { @apply btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500; }
+  .btn-secondary {
+    @apply btn bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200
+           border border-gray-300 dark:border-gray-600
+           hover:bg-gray-50 dark:hover:bg-gray-600
+           focus:ring-gray-400;
+  }
+  .btn-danger    { @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500; }
+  .btn-sm        { @apply px-2 py-1 text-xs; }
+
+  .input {
+    @apply block w-full rounded-md border border-gray-300 dark:border-gray-600
+           bg-white dark:bg-gray-700
+           px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100
+           shadow-sm placeholder:text-gray-400 dark:placeholder:text-gray-500
+           focus:border-blue-500 dark:focus:border-blue-400
+           focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400;
+  }
+  .input-error { @apply border-red-400 focus:border-red-500 focus:ring-red-500; }
+
+  .label      { @apply block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1; }
+  .error-msg  { @apply text-xs text-red-600 dark:text-red-400 mt-0.5; }
+
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4;
+    box-shadow: var(--shadow-card);
+  }
+
+  .tab-btn           { @apply px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap; }
+  .tab-btn-active    {
+    @apply tab-btn border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400;
+  }
+  .tab-btn-active-amber   {
+    @apply tab-btn border-amber-500 dark:border-amber-400 text-amber-600 dark:text-amber-400;
+  }
+  .tab-btn-active-emerald {
+    @apply tab-btn border-emerald-600 dark:border-emerald-400 text-emerald-700 dark:text-emerald-400;
+  }
+  .tab-btn-inactive  {
+    @apply tab-btn border-transparent text-gray-500 dark:text-gray-400
+           hover:text-gray-700 dark:hover:text-gray-200
+           hover:border-gray-300 dark:hover:border-gray-600;
+  }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background-color: var(--bg-page);
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html.dark body {
+  color: #f1f5f9;
+}
+
+#root { min-height: 100vh; }
+
+/* ── Dark mode overrides for inline Tailwind utilities ───────────────────── */
+/* Only kicks in when html has class="dark"                                    */
+
+/* Backgrounds */
+html.dark .bg-white         { background-color: #1e293b; }
+html.dark .bg-gray-50       { background-color: #0f172a; }
+html.dark .bg-gray-100      { background-color: #1e293b; }
+
+/* Borders */
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300  { border-color: #334155; }
+html.dark .border-b-2       { border-color: #334155; }
+
+/* Text gray scale */
+html.dark .text-gray-900    { color: #f1f5f9; }
+html.dark .text-gray-800    { color: #e2e8f0; }
+html.dark .text-gray-700    { color: #cbd5e1; }
+html.dark .text-gray-600    { color: #94a3b8; }
+html.dark .text-gray-500    { color: #64748b; }
+html.dark .text-gray-400    { color: #475569; }
+html.dark .text-gray-300    { color: #334155; }
+
+/* Hover utilities */
+html.dark .hover\:bg-gray-50:hover    { background-color: #1e293b; }
+html.dark .hover\:bg-gray-100:hover   { background-color: #334155; }
+html.dark .hover\:bg-blue-50:hover    { background-color: rgba(59,130,246,0.15); }
+html.dark .hover\:bg-amber-50:hover   { background-color: rgba(245,158,11,0.15); }
+html.dark .hover\:bg-emerald-50:hover { background-color: rgba(16,185,129,0.15); }
+html.dark .hover\:text-gray-700:hover { color: #e2e8f0; }
+html.dark .hover\:border-gray-300:hover { border-color: #475569; }
+
+/* Status colors (semi-transparent tints) */
+html.dark .bg-green-50   { background-color: rgba(16,185,129,0.12); }
+html.dark .bg-red-50     { background-color: rgba(239,68,68,0.12); }
+html.dark .bg-blue-50    { background-color: rgba(59,130,246,0.12); }
+html.dark .bg-amber-50   { background-color: rgba(245,158,11,0.12); }
+html.dark .bg-yellow-50  { background-color: rgba(234,179,8,0.12); }
+html.dark .bg-orange-50  { background-color: rgba(249,115,22,0.12); }
+
+html.dark .border-green-200  { border-color: rgba(16,185,129,0.3); }
+html.dark .border-red-200    { border-color: rgba(239,68,68,0.3); }
+html.dark .border-blue-200   { border-color: rgba(59,130,246,0.3); }
+html.dark .border-amber-200  { border-color: rgba(245,158,11,0.3); }
+html.dark .border-yellow-200 { border-color: rgba(234,179,8,0.3); }
+html.dark .border-orange-200 { border-color: rgba(249,115,22,0.3); }
+
+/* Status text — keep vibrant in dark mode */
+html.dark .text-green-600,
+html.dark .text-green-700 { color: #34d399; }
+html.dark .text-green-800 { color: #6ee7b7; }
+html.dark .text-red-600,
+html.dark .text-red-700   { color: #f87171; }
+html.dark .text-red-800   { color: #fca5a5; }
+html.dark .text-amber-600,
+html.dark .text-amber-700,
+html.dark .text-amber-800 { color: #fbbf24; }
+html.dark .text-orange-500 { color: #fb923c; }
+html.dark .text-blue-600,
+html.dark .text-blue-700  { color: #60a5fa; }
+
+/* Table rows */
+html.dark .hover\:bg-gray-50:hover { background-color: #1e293b; }
+html.dark tbody tr:hover { background-color: #1e293b; }
+
+/* Dividers */
+html.dark .divide-y > * + * { border-top-color: #334155; }
+
+/* Opacity opacity-50 on inactive items stays OK */
+
+/* Shadows */
+html.dark .shadow-xl  {
+  box-shadow: 0 20px 40px -8px rgb(0 0 0 / 0.6), 0 8px 16px -4px rgb(0 0 0 / 0.5);
+}
+html.dark .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7);
+}
+
+/* Modal backdrop — slightly darker in dark mode already handled by bg-black/60 */
+
+/* select option backgrounds */
+html.dark select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* ── Print (A4 Einzelabrechnung) ─────────────────────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+
+  #abrechnung-print,
+  #abrechnung-print * { visibility: visible; }
+
+  #abrechnung-print {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    padding: 20mm 20mm 15mm;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
+  }
+  #abrechnung-print table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  #abrechnung-print th,
+  #abrechnung-print td { padding: 4px 6px; }
+}
