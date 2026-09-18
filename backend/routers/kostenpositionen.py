@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -19,7 +20,7 @@ from schemas import (
 
 router = APIRouter(tags=["Kostenpositionen"])
 
-UPLOADS_DIR = Path("uploads")
+UPLOADS_DIR = Path(os.environ.get("NK_TOOL_UPLOADS_DIR", "uploads"))
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".gif"}
 
 

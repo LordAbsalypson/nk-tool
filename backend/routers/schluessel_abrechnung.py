@@ -1,6 +1,7 @@
 """Direkt-Preise-Modus: Preise pro Einheit setzen, Mieter-Abrechnungen
 berechnen und als PDF exportieren. Siehe ``schluessel_engine.py``."""
 
+import os
 from datetime import date
 from pathlib import Path
 
@@ -70,8 +71,15 @@ from schluessel_engine import (
 router = APIRouter(tags=["Direkt-Preise"])
 
 # Private, nicht versionierter Ordner (siehe .gitignore) — enthält echte
-# Mieterdaten und darf nicht ins Git-Repo gelangen.
-PDF_DIR = Path(__file__).resolve().parent.parent.parent / "abrechnungen_pdf"
+# Mieterdaten und darf nicht ins Git-Repo gelangen. In der Desktop-App zeigt
+# NK_TOOL_PDF_DIR auf das App-Datenverzeichnis statt in den (im Bundle
+# nicht beschreibbaren) Quellcode-Baum.
+PDF_DIR = Path(
+    os.environ.get(
+        "NK_TOOL_PDF_DIR",
+        str(Path(__file__).resolve().parent.parent.parent / "abrechnungen_pdf"),
+    )
+)
 
 
 @router.get("/perioden/{periode_id}/schluesselpreise")

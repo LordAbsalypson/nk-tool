@@ -23,10 +23,10 @@ abrechnungen_pdf/
 .mypy_cache/
 .pytest_cache/
 
-# Desktop-App-Build (PyInstaller) — Build-Artefakte, keine Quelle
+# Desktop-App-Build (PyInstaller) — Build-Artefakte, keine Quelle.
+# desktop/nk-tool.spec ist dagegen handgeschrieben (Quellcode) und bleibt getrackt.
 desktop/build/
 desktop/dist/
-*.spec
 
 # Logs & tmp
 *.log

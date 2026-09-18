@@ -31,8 +31,22 @@ from typing import Optional
 import webview
 
 APP_NAME = "NK-Tool"
-DESKTOP_DIR = Path(__file__).resolve().parent
-REPO_ROOT = DESKTOP_DIR.parent
+
+
+def _resource_root() -> Path:
+    """Wurzel für gebündelte Ressourcen (backend/, frontend/dist, desktop/).
+
+    Im PyInstaller-Bundle (--onedir) liegt alles unter ``sys._MEIPASS`` in
+    derselben relativen Struktur wie im Dev-Checkout (siehe --add-data in
+    desktop/nk-tool.spec) — im Dev-Modus ist es einfach das Repo-Root.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS"))
+    return Path(__file__).resolve().parent.parent
+
+
+REPO_ROOT = _resource_root()
+DESKTOP_DIR = REPO_ROOT / "desktop"
 BACKEND_DIR = REPO_ROOT / "backend"
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
@@ -134,7 +148,13 @@ def wait_for_server(port: int, timeout: float = 15.0) -> bool:
 
 
 def start_backend(db_path: Path, port: int) -> None:
+    data_dir = db_path.parent
     os.environ["NK_TOOL_DB_PATH"] = str(db_path)
+    # uploads/ und abrechnungen_pdf/ sind im Backend-Quellcode relativ zum CWD
+    # bzw. zum Quellbaum verankert — im App-Bundle weder beschreibbar noch
+    # CWD-stabil, deshalb ins App-Datenverzeichnis umgeleitet.
+    os.environ["NK_TOOL_UPLOADS_DIR"] = str(data_dir / "uploads")
+    os.environ["NK_TOOL_PDF_DIR"] = str(data_dir / "abrechnungen_pdf")
     sys.path.insert(0, str(BACKEND_DIR))
 
     import uvicorn  # noqa: E402
