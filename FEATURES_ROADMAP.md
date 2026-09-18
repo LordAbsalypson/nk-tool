@@ -173,10 +173,19 @@ nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
    auf [`ARCHITECTURE.md`](ARCHITECTURE.md), ergänzt um die App-Packaging-Architektur
    (pywebview-Fenster ↔ lokaler FastAPI-Prozess ↔ SQLite-Datei im App-Datenverzeichnis).
 
-**Umfang/Aufwand:** mehrstündiges bis mehrtägiges Vorhaben — Build-Pipeline für zwei
-Betriebssysteme, Codesigning-Fragen (macOS Gatekeeper/Notarization, Windows SmartScreen),
-DB-Pfad-Migrationslogik, PyInstaller-Konfiguration für FastAPI+Uvicorn+pywebview,
-GitHub-Releases-Workflow für Updates. Noch nicht begonnen — nächster Schritt ist ein
-Umsetzungsplan mit Teilschritten (1. lokaler Prototyp mit pywebview + Production-Build,
-2. PyInstaller-Bundle eine Plattform, 3. DB-Migration/Erststart-Logik, 4. Installer, 5.
-Settings-Deinstallation + Update-Check, 6. Bug-Report-Button, 7. Doku).
+**Fortschritt (Stand 2026-09-18):**
+1. ✅ Lokaler Prototyp (pywebview + Production-Build) — `desktop/app.py`, lokal verifiziert.
+2. ✅ PyInstaller-Bundle macOS — `desktop/nk-tool.spec`, `desktop/dist/NK-Tool.app` (~85 MB,
+   unsigned), Onboarding-Flow per Screenshot bestätigt. Windows-Spec (`nk-tool-windows.spec`)
+   + GitHub-Actions-Workflow (`.github/workflows/build-desktop.yml`, `windows-latest`-Runner, da
+   kein lokaler Windows-Rechner vorhanden) angelegt — **Build-Ergebnis auf Windows noch nicht
+   verifiziert**, da nur per CI testbar. Nebenbei gefunden: `backend/requirements.txt` fehlte
+   `reportlab` (PDF-Erzeugung) — für jedes Fresh-Setup und CI kritisch, gefixt.
+3. ⬜ DB-Migration/Erststart-Logik — Kernlogik in `desktop/app.py` steht (Verify+Import), noch
+   nicht mit einer echten Alt-DB im gebauten Bundle durchgespielt.
+4. ⬜ Installer (`.dmg`/`.pkg` macOS, Inno Setup/MSIX Windows).
+5. ⬜ Settings-Deinstallation + GitHub-Releases-Update-Check.
+6. ⬜ App-Design-Politur, Branding/Icon.
+7. ⬜ Bug-Report-Button.
+8. ⬜ Under-the-Hood-Doku (Kurzfassung in `ARCHITECTURE.md` bereits vorhanden, ausführlichere
+   Version nach Abschluss der übrigen Schritte).

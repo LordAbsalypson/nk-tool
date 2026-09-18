@@ -1,0 +1,92 @@
+name: Build Desktop App
+
+# Baut die Desktop-App für macOS und Windows über PyInstaller (siehe desktop/README.md).
+# Windows wird ausschließlich hier gebaut — kein lokaler Windows-Rechner im Projekt vorhanden.
+# Manuell auslösbar (workflow_dispatch) oder bei Push auf main, wenn sich desktop/, backend/
+# oder frontend/ geändert haben. Lädt die gebauten Artefakte hoch, veröffentlicht aber (noch)
+# keinen GitHub Release — das ist ein späterer Schritt (siehe FEATURES_ROADMAP.md).
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/build-desktop.yml"
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend-Production-Build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python-Abhängigkeiten installieren
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r desktop/requirements.txt
+
+      - name: App bauen (PyInstaller)
+        working-directory: desktop
+        run: python -m PyInstaller --noconfirm nk-tool.spec
+
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: NK-Tool-macOS
+          path: desktop/dist/NK-Tool.app
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend-Production-Build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python-Abhängigkeiten installieren
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r desktop/requirements.txt
+
+      - name: App bauen (PyInstaller)
+        working-directory: desktop
+        run: python -m PyInstaller --noconfirm nk-tool-windows.spec
+
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: NK-Tool-Windows
+          path: desktop/dist/NK-Tool
+          if-no-files-found: error
