@@ -175,17 +175,34 @@ nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
 
 **Fortschritt (Stand 2026-09-18):**
 1. ✅ Lokaler Prototyp (pywebview + Production-Build) — `desktop/app.py`, lokal verifiziert.
-2. ✅ PyInstaller-Bundle macOS — `desktop/nk-tool.spec`, `desktop/dist/NK-Tool.app` (~85 MB,
-   unsigned), Onboarding-Flow per Screenshot bestätigt. Windows-Spec (`nk-tool-windows.spec`)
-   + GitHub-Actions-Workflow (`.github/workflows/build-desktop.yml`, `windows-latest`-Runner, da
-   kein lokaler Windows-Rechner vorhanden) angelegt — **Build-Ergebnis auf Windows noch nicht
-   verifiziert**, da nur per CI testbar. Nebenbei gefunden: `backend/requirements.txt` fehlte
-   `reportlab` (PDF-Erzeugung) — für jedes Fresh-Setup und CI kritisch, gefixt.
-3. ⬜ DB-Migration/Erststart-Logik — Kernlogik in `desktop/app.py` steht (Verify+Import), noch
-   nicht mit einer echten Alt-DB im gebauten Bundle durchgespielt.
-4. ⬜ Installer (`.dmg`/`.pkg` macOS, Inno Setup/MSIX Windows).
-5. ⬜ Settings-Deinstallation + GitHub-Releases-Update-Check.
-6. ⬜ App-Design-Politur, Branding/Icon.
-7. ⬜ Bug-Report-Button.
-8. ⬜ Under-the-Hood-Doku (Kurzfassung in `ARCHITECTURE.md` bereits vorhanden, ausführlichere
-   Version nach Abschluss der übrigen Schritte).
+2. ✅ PyInstaller-Bundle macOS + Windows — `desktop/nk-tool.spec` / `nk-tool-windows.spec`,
+   CI-Workflow (`.github/workflows/build-desktop.yml`) baut beide auf jedem Push, beide Läufe
+   grün verifiziert. `backend/requirements.txt` fehlte `reportlab` (PDF-Erzeugung) — gefixt.
+   `frontend/package-lock.json` war für `npm ci` inkonsistent (Bug in optionalen
+   Rolldown-WASM-Plattformbindungen) — Workflow nutzt `npm install`.
+3. ✅ Erststart-/Import-Logik überarbeitet und **korrigierter Bug**: ursprüngliches Design
+   (separates Onboarding-Fenster, bei Klick auf "Bestehende Datenbank importieren" zerstört und
+   neu erzeugt) fror beim echten Test ein. Root Cause gefunden und verifiziert: die
+   Dateidialog-Filterstrings enthielten einen Bindestrich ("SQLite-Datenbank"), den pywebviews
+   Validierungs-Regex `^([\w ]+)\(...)$` ablehnt — die Exception flog innerhalb des
+   js_api-Aufrufs, das JS-Promise blieb für immer hängen (kein Cocoa-Threading-Problem, wie
+   zunächst vermutet). Strukturell behoben: **ein** dauerhaftes Fenster über die ganze
+   Prozesslaufzeit statt eines separaten Onboarding-Fensters; Import/Export/Zurücksetzen laufen
+   jetzt aus der normal laufenden React-UI heraus (`DesktopSettingsModal.tsx`,
+   `useDesktopApi.ts`). Fix live am gebauten macOS-Bundle nachgestellt: Dateidialog öffnet
+   jetzt korrekt (Screenshot-verifiziert), kein Freeze mehr.
+4. ✅ Session Resume — kein eigener Zustand nötig, DB-Datei bleibt im App-Datenverzeichnis
+   erhalten; "erster Start" wird rein daran erkannt, dass noch keine Liegenschaft existiert.
+5. ✅ Einstellungen-Dialog in der App (Footer-Icon): DB-Pfad/-Größe, Import (verifiziert vor
+   Übernahme), Export, "Neue Datenbank anlegen"/"Zurücksetzen" (beide archivieren die bisherige
+   DB nach `archive/<Zeitstempel>_nk_tool.db` statt sie zu löschen — Rückwärtskompatibilität
+   garantiert, kein Datenverlust), Doku-Links (README/Roadmap/Architektur/Issues).
+6. ✅ App-Icon — generierter Platzhalter (`desktop/icon.icns`/`icon.ico`, schlichtes
+   Beleg-Symbol in der App-Akzentfarbe), kein Grafikdesign. In beiden Spec-Dateien eingebunden.
+7. ⬜ Installer (`.dmg`/`.pkg` macOS, Inno Setup/MSIX Windows).
+8. ⬜ GitHub-Releases-Update-Check (In-App-Hinweis bei neuer Version).
+9. ⬜ Bug-Report-Button (aktuell nur ein Link zu GitHub Issues in den Einstellungen, kein
+   vorausgefülltes Formular mit Log-Auszug/Versionsnummer).
+10. ⬜ Ausführliches In-App-Tutorial/Schritt-für-Schritt-Anleitung (aktuell nur
+   Willkommens-Hinweis + Doku-Links, kein geführter Ablauf).
+11. ⬜ Codesigning (bewusst zurückgestellt, siehe LEGAL_NOTES.md/Kostenfrage).

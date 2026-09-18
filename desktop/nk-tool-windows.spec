@@ -54,7 +54,6 @@ a.datas += Tree(
     excludes=["*.db", "*.db-journal", "__pycache__", "tests", "*.pyc", ".pytest_cache"],
 )
 a.datas += Tree(FRONTEND_DIST, prefix=os.path.join("frontend", "dist"))
-a.datas += [(os.path.join("desktop", "onboarding.html"), "onboarding.html", "DATA")]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -73,7 +72,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=os.path.join(SPECPATH, "icon.ico"),
 )
 
 coll = COLLECT(

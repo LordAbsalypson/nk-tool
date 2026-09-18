@@ -48,7 +48,6 @@ a.datas += Tree(
     excludes=["*.db", "*.db-journal", "__pycache__", "tests", "*.pyc", ".pytest_cache"],
 )
 a.datas += Tree(FRONTEND_DIST, prefix=os.path.join("frontend", "dist"))
-a.datas += [(os.path.join("desktop", "onboarding.html"), "onboarding.html", "DATA")]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -84,7 +83,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="NK-Tool.app",
-    icon=None,
+    icon=os.path.join(SPECPATH, "icon.icns"),
     bundle_identifier="de.paar.nk-tool",
     info_plist={
         "CFBundleName": "NK-Tool",

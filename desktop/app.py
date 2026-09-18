@@ -4,16 +4,32 @@ Ersetzt für Endnutzer den Dev-Workflow (uvicorn --reload + npm run dev) durch
 eine installierbare App ohne sichtbaren Server, ohne Netzwerk-Exposure per
 Default. Siehe FEATURES_ROADMAP.md Abschnitt "Desktop-App" für den vollen Plan.
 
+Architektur (Stand 2026-09-18, überarbeitet): EIN dauerhaftes Fenster über die
+gesamte Prozesslaufzeit — kein separates Onboarding-Fenster mehr, das erzeugt
+und wieder zerstört wird (frühere Version, verursachte einen Freeze: die
+file_types-Filterstrings enthielten einen Bindestrich, den pywebviews
+Validierungs-Regex ablehnt — der Fehler flog innerhalb des js_api-Aufrufs,
+das JS-Promise blieb für immer hängen, wirkte wie ein eingefrorenes Fenster).
+Import/Export/Zurücksetzen laufen jetzt über `DesktopApi`, aufgerufen aus der
+normalen React-UI heraus (Einstellungen-Dialog, siehe
+frontend/src/components/ui/DesktopSettingsModal.tsx).
+
 Ablauf:
-1. App-Datenverzeichnis pro OS bestimmen (siehe ``app_data_dir``).
-2. Falls dort noch keine ``nk_tool.db`` existiert: Onboarding-Fenster
-   (neue DB anlegen [Default] oder bestehende Datei auswählen+verifizieren+
-   importieren).
-3. FastAPI-Backend (bestehendes ``backend/main.py``, unverändert) in einem
-   Hintergrund-Thread starten, ``NK_TOOL_DB_PATH`` zeigt auf das App-
-   Datenverzeichnis. Frontend-Production-Build (``frontend/dist``) wird als
-   Static Files an denselben Server gehängt.
-4. Natives Fenster auf den lokalen Server öffnen.
+1. App-Datenverzeichnis pro OS bestimmen (siehe ``app_data_dir``). Eine leere
+   Datenbank dort wird beim ersten Start automatisch von SQLAlchemy angelegt
+   (wie im Dev-Modus auch) — "erster Start" wird im Frontend rein daran
+   erkannt, dass noch keine Liegenschaft existiert, kein separater Zustand.
+2. FastAPI-Backend (bestehendes ``backend/main.py``, unverändert) in einem
+   Hintergrund-Thread starten. Frontend-Production-Build (``frontend/dist``)
+   wird als Static Files an denselben Server gehängt.
+3. Natives Fenster auf den lokalen Server öffnen, mit ``DesktopApi`` als
+   js_api — bleibt bis zum Beenden der App bestehen.
+
+Datenbank wechseln/zurücksetzen (Import, "Neue Datenbank", Reset) archiviert
+die bisherige Datei immer nach ``<app-data>/archive/<Zeitstempel>_nk_tool.db``
+(``shutil.move`` — nie löschen) und startet den Prozess neu (nötig, weil
+SQLAlchemy die Engine einmalig beim Import bindet, ein DB-Wechsel zur Laufzeit
+ist mit dem aktuellen main.py nicht vorgesehen).
 """
 
 from __future__ import annotations
@@ -25,20 +41,24 @@ import sqlite3
 import sys
 import threading
 import time
+import webbrowser
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import webview
+from webview import FileDialog
 
 APP_NAME = "NK-Tool"
+APP_VERSION = "0.1.0"
 
 
 def _resource_root() -> Path:
-    """Wurzel für gebündelte Ressourcen (backend/, frontend/dist, desktop/).
+    """Wurzel für gebündelte Ressourcen (backend/, frontend/dist).
 
     Im PyInstaller-Bundle (--onedir) liegt alles unter ``sys._MEIPASS`` in
     derselben relativen Struktur wie im Dev-Checkout (siehe --add-data in
-    desktop/nk-tool.spec) — im Dev-Modus ist es einfach das Repo-Root.
+    desktop/nk-tool.spec / nk-tool-windows.spec) — im Dev-Modus ist es
+    einfach das Repo-Root.
     """
     if getattr(sys, "frozen", False):
         return Path(getattr(sys, "_MEIPASS"))
@@ -46,12 +66,9 @@ def _resource_root() -> Path:
 
 
 REPO_ROOT = _resource_root()
-DESKTOP_DIR = REPO_ROOT / "desktop"
 BACKEND_DIR = REPO_ROOT / "backend"
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 
-# Kern-Tabellen, die jede echte NK-Tool-Datenbank haben muss — verhindert den
-# Import einer beliebigen/fremden .db-Datei ohne jede Prüfung.
 REQUIRED_TABLES = {"liegenschaft", "mieter", "wohnung", "abrechnungsperiode"}
 
 
@@ -89,51 +106,106 @@ def verify_db(path: Path) -> tuple[bool, str]:
     return True, ""
 
 
-class OnboardingApi:
-    """Von JS (onboarding.html) aufrufbare Python-Funktionen (pywebview js_api)."""
+def _archive_current_db(db_path: Path) -> Path | None:
+    """Verschiebt (nie löscht) eine bestehende DB nach archive/. Gibt den
+    neuen Pfad zurück, oder None, wenn keine DB vorhanden war."""
+    if not db_path.exists():
+        return None
+    archive_dir = db_path.parent / "archive"
+    archive_dir.mkdir(exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = archive_dir / f"{ts}_{db_path.name}"
+    shutil.move(str(db_path), str(dest))
+    return dest
+
+
+def _schedule_restart(delay: float = 0.6) -> None:
+    """Startet den Prozess nach kurzer Verzögerung neu (lässt die aktuelle
+    HTTP-Antwort noch beim Frontend ankommen, bevor der Prozess ersetzt wird)."""
+
+    def _do_restart() -> None:
+        time.sleep(delay)
+        python = sys.executable
+        os.execv(python, [python] + sys.argv)
+
+    threading.Thread(target=_do_restart, daemon=True).start()
+
+
+class DesktopApi:
+    """Von der React-UI aus aufrufbare Python-Funktionen (pywebview js_api).
+    Siehe frontend/src/hooks/useDesktopApi.ts für die JS-seitige Nutzung."""
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
-        self.decided = threading.Event()
 
-    def create_new(self) -> dict:
-        self.decided.set()
-        webview.windows[0].destroy()
-        return {"ok": True}
+    def app_info(self) -> dict:
+        return {
+            "version": APP_VERSION,
+            "platform": sys.platform,
+            "dbPath": str(self.db_path),
+            "dbSizeBytes": self.db_path.stat().st_size if self.db_path.exists() else 0,
+            "appDataDir": str(self.db_path.parent),
+        }
 
-    def choose_and_import(self) -> dict:
+    def pick_import_file(self) -> dict:
         window = webview.windows[0]
         result = window.create_file_dialog(
-            webview.OPEN_DIALOG,
-            file_types=("SQLite-Datenbank (*.db)", "Alle Dateien (*.*)"),
+            FileDialog.OPEN,
+            file_types=("SQLite Datenbank (*.db)", "Alle Dateien (*.*)"),
         )
         if not result:
-            return {"ok": False, "error": None}  # Nutzer hat abgebrochen
+            return {"path": None}
+        return {"path": result[0]}
 
-        src = Path(result[0])
+    def verify_import_file(self, path: str) -> dict:
+        ok, err = verify_db(Path(path))
+        return {"ok": ok, "error": err if not ok else None}
+
+    def import_db(self, path: str) -> dict:
+        src = Path(path)
         ok, err = verify_db(src)
         if not ok:
             return {"ok": False, "error": err}
-
-        shutil.copy2(src, self.db_path)
-        self.decided.set()
-        window.destroy()
+        _archive_current_db(self.db_path)
+        shutil.copy2(src, self.db_path)  # Quelle bleibt unangetastet
+        _schedule_restart()
         return {"ok": True}
 
+    def create_new_db(self) -> dict:
+        _archive_current_db(self.db_path)
+        _schedule_restart()
+        return {"ok": True}
 
-def run_onboarding(db_path: Path) -> None:
-    api = OnboardingApi(db_path)
-    webview.create_window(
-        f"{APP_NAME} — Einrichtung",
-        str(DESKTOP_DIR / "onboarding.html"),
-        js_api=api,
-        width=440 + 64,
-        height=340,
-        resizable=False,
-    )
-    webview.start()
-    # Fenster vom Nutzer per OS-Close-Button geschlossen, ohne Auswahl zu
-    # treffen -> Standardverhalten laut Anforderung: neue (leere) DB anlegen.
+    def reset_link(self) -> dict:
+        """Settings-Aktion "Zurücksetzen": identisch zu create_new_db() —
+        eigener Name, weil die UI hier andere Bestätigungs-/Warntexte zeigt."""
+        return self.create_new_db()
+
+    def pick_export_destination(self) -> dict:
+        window = webview.windows[0]
+        result = window.create_file_dialog(
+            FileDialog.SAVE,
+            save_filename="nk_tool_export.db",
+            file_types=("SQLite Datenbank (*.db)",),
+        )
+        if not result:
+            return {"path": None}
+        return {"path": result if isinstance(result, str) else result[0]}
+
+    def export_db(self, dest_path: str) -> dict:
+        if not self.db_path.exists():
+            return {"ok": False, "error": "Keine Datenbank vorhanden."}
+        try:
+            shutil.copy2(self.db_path, Path(dest_path))
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True}
+
+    def open_external(self, url: str) -> dict:
+        if not (url.startswith("https://") or url.startswith("http://")):
+            return {"ok": False, "error": "Nur http(s)-URLs erlaubt."}
+        webbrowser.open(url)
+        return {"ok": True}
 
 
 def wait_for_server(port: int, timeout: float = 15.0) -> bool:
@@ -173,15 +245,14 @@ def start_backend(db_path: Path, port: int) -> None:
             file=sys.stderr,
         )
 
-    config = uvicorn.Config(backend_main.app, host="127.0.0.1", port=port, log_level="warning")
+    config = uvicorn.Config(
+        backend_main.app, host="127.0.0.1", port=port, log_level="warning", loop="asyncio"
+    )
     uvicorn.Server(config).run()
 
 
 def main() -> None:
     db_path = app_data_dir() / "nk_tool.db"
-
-    if not db_path.exists():
-        run_onboarding(db_path)
 
     port = 8731
     thread = threading.Thread(target=start_backend, args=(db_path, port), daemon=True)
@@ -197,6 +268,7 @@ def main() -> None:
         width=1280,
         height=860,
         min_size=(1000, 700),
+        js_api=DesktopApi(db_path),
     )
     webview.start()
 

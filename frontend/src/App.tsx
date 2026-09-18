@@ -14,6 +14,8 @@ import { GlossarModal } from "./components/ui/GlossarModal";
 import { PdfVorlageModal } from "./components/ui/PdfVorlageModal";
 import { TodoPanel } from "./components/ui/TodoPanel";
 import { VerbundPanel } from "./components/ui/VerbundPanel";
+import { DesktopSettingsModal } from "./components/ui/DesktopSettingsModal";
+import { isDesktopApp } from "./hooks/useDesktopApi";
 import { Spinner } from "./components/ui/Spinner";
 import { GlobalSearch, type SuchZiel } from "./components/ui/GlobalSearch";
 import { TopBar, type StageId } from "./components/layout/TopBar";
@@ -134,6 +136,7 @@ function AppInner() {
   const [showPdfVorlage, setShowPdfVorlage] = useState(false);
   const [showTodo, setShowTodo] = useState(false);
   const [showVerbund, setShowVerbund] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [editTarget, setEditTarget] = useState<Liegenschaft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Liegenschaft | null>(null);
   const [, setParams] = useSearchParams();
@@ -244,6 +247,24 @@ function AppInner() {
             <div className="flex flex-1 items-center justify-center text-gray-400 text-sm flex-col gap-3">
               {isLoading ? (
                 <Spinner />
+              ) : liegenschaften.length === 0 && isDesktopApp() ? (
+                <>
+                  <p className="text-base text-gray-500 dark:text-gray-300">
+                    Willkommen bei NK-Tool.
+                  </p>
+                  <p className="max-w-sm text-center">
+                    Neu anfangen oder eine bestehende Datenbank aus einer früheren Installation
+                    übernehmen?
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowNew(true)} className="btn btn-primary">
+                      Erste Liegenschaft anlegen
+                    </button>
+                    <button onClick={() => setShowSettings(true)} className="btn btn-secondary">
+                      Datenbank importieren …
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
                   <p>Keine Liegenschaft ausgewählt.</p>
@@ -327,7 +348,10 @@ function AppInner() {
         onGlossar={() => setShowGlossar(true)}
         onTodo={() => setShowTodo(true)}
         onPdfVorlage={() => setShowPdfVorlage(true)}
+        onSettings={() => setShowSettings(true)}
       />
+
+      <DesktopSettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
       <GlossarModal open={showGlossar} onClose={() => setShowGlossar(false)} />
 

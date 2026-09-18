@@ -65,10 +65,14 @@ nk-tool/
 
 ## Desktop-App
 
-`desktop/app.py` + `desktop/nk-tool.spec` bündeln Backend + Frontend-Production-Build via
-[pywebview](https://pywebview.flowrl.com/) + PyInstaller zu einer installierbaren `.app`
-(macOS; Windows geplant). Details, Build-Anleitung und Erststart-Verhalten in
-[`desktop/README.md`](desktop/README.md).
+`desktop/app.py` bündelt Backend + Frontend-Production-Build via
+[pywebview](https://pywebview.flowrl.com/) + PyInstaller zu einer installierbaren App (macOS
+über `nk-tool.spec`, Windows über `nk-tool-windows.spec` + GitHub Actions, da kein lokaler
+Windows-Rechner vorhanden ist). Ein dauerhaftes Fenster über die gesamte Prozesslaufzeit —
+Import/Export/Zurücksetzen der Datenbank laufen über eine js_api-Brücke (`DesktopApi`) aus der
+normal laufenden React-UI heraus (Einstellungen-Dialog), nicht über ein separates
+Onboarding-Fenster. Details, Build-Anleitung und Architektur-Hintergrund (inkl. eines
+gefundenen und behobenen Freeze-Bugs) in [`desktop/README.md`](desktop/README.md).
 
 ## MCP-Server (LLM-Zugriff)
 
