@@ -23,6 +23,11 @@ abrechnungen_pdf/
 .mypy_cache/
 .pytest_cache/
 
+# Desktop-App-Build (PyInstaller) — Build-Artefakte, keine Quelle
+desktop/build/
+desktop/dist/
+*.spec
+
 # Logs & tmp
 *.log
 .DS_Store
