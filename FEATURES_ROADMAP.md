@@ -139,3 +139,44 @@ Geprüft gegen aktuellen Code (nicht nur gegen die CLAUDE.md-Beschreibung):
   Reminder (z. B. E-Mail an den Vermieter), wenn kurz vor Abrechnungsstart noch
   Zählerstände oder Kostenpositionen fehlen — verhindert Zeitdruck am
   eigentlichen Abrechnungstermin.
+
+### Desktop-App (macOS + Windows) — geplantes größeres Vorhaben, Stand 2026-09-18
+
+Löst die aktuelle Schwäche "kein Auth-Layer, nur Dev-Server" strukturell: aus dem
+Web-App-Setup (`uvicorn --reload` + `npm run dev`) wird eine installierbare native App ohne
+sichtbaren localhost-Server, ohne Netzwerk-Exposure per Default.
+
+**Technischer Ansatz (mit JP abgestimmt):** [pywebview](https://pywebview.flowrl.com/) +
+PyInstaller — kein neues Toolchain (Rust/Node) nötig, Backend bleibt Python/FastAPI im selben
+Prozess, React-Frontend wird als statischer Production-Build ausgeliefert, `pywebview` öffnet ein
+natives Fenster (WebKit auf macOS, WebView2 auf Windows) statt eines Browser-Tabs. Verworfen:
+Electron (zu schwer, "schlank" war explizite Anforderung), Tauri (Rust-Toolchain + Python-Sidecar
+nötig, mehr Komplexität als der Nutzen hier rechtfertigt).
+
+**Anforderungen (JP, 2026-09-18):**
+1. **Installierbar auf macOS und Windows** — kein Terminal, kein `npm run dev` für Endnutzer.
+2. **Production-Build statt Dev-Server**, aber **rückwärtskompatibel**: bestehende
+   `backend/nk_tool.db` muss beim ersten Start der App automatisch gefunden/übernommen werden,
+   nie überschrieben, Backup vor jeder Migration (bestehende Projektregel aus `CLAUDE.md`).
+3. **Sauberer Installer** pro Plattform (macOS: `.dmg`/`.pkg`; Windows: Inno Setup oder MSIX).
+4. **Deinstallations-Möglichkeit direkt in den App-Settings** (nicht nur über
+   Systemsteuerung/Finder-Papierkorb) — inkl. klarer Abfrage, ob die lokale Datenbank dabei
+   erhalten oder gelöscht werden soll.
+5. **Installation/Update über GitHub** (Releases-Seite des öffentlichen Repos
+   [nk-tool](https://github.com/LordAbsalypson/nk-tool) als Distributionskanal) — In-App-Hinweis
+   bei neuer Version, kein separater Update-Server nötig.
+6. **Durchdachtes, zeitloses UI-Design** für die App-Hülle (Fenster-Chrome, Branding,
+   Erststart-Erlebnis) — nicht nur die bestehende Web-UI 1:1 in ein Fenster gepackt.
+7. **Bug-Reporting direkt in der App** (z. B. Button, der ein vorausgefülltes GitHub-Issue im
+   öffentlichen Repo öffnet, optional mit Log-Auszug/Versionsnummer).
+8. **"Wie funktioniert es unter der Haube"-Dokumentation** im öffentlichen GitHub-Repo — verweist
+   auf [`ARCHITECTURE.md`](ARCHITECTURE.md), ergänzt um die App-Packaging-Architektur
+   (pywebview-Fenster ↔ lokaler FastAPI-Prozess ↔ SQLite-Datei im App-Datenverzeichnis).
+
+**Umfang/Aufwand:** mehrstündiges bis mehrtägiges Vorhaben — Build-Pipeline für zwei
+Betriebssysteme, Codesigning-Fragen (macOS Gatekeeper/Notarization, Windows SmartScreen),
+DB-Pfad-Migrationslogik, PyInstaller-Konfiguration für FastAPI+Uvicorn+pywebview,
+GitHub-Releases-Workflow für Updates. Noch nicht begonnen — nächster Schritt ist ein
+Umsetzungsplan mit Teilschritten (1. lokaler Prototyp mit pywebview + Production-Build,
+2. PyInstaller-Bundle eine Plattform, 3. DB-Migration/Erststart-Logik, 4. Installer, 5.
+Settings-Deinstallation + Update-Check, 6. Bug-Report-Button, 7. Doku).
