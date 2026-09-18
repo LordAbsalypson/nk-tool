@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# DB & Uploads (Daten, kein Code — separat sichern!)
+backend/*.db
+backend/uploads/
+backup_safe/
+
+# Generierte Abrechnungs-PDFs (echte Mieterdaten — nie committen)
+abrechnungen_pdf/
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+
+# Logs & tmp
+*.log
+.DS_Store
+
+# Env
+.env
+.env.local
