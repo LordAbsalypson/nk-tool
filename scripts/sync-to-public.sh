@@ -48,7 +48,6 @@ RSYNC_FILTERS=(
   --exclude="venv/"
   --exclude="*.egg-info/"
   --exclude="build/"
-  --exclude="*.spec"
   --include="/backend/***"
   --include="/desktop/***"
   --include="/frontend/src/***"
