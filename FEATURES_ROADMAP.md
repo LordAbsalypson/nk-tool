@@ -364,3 +364,63 @@ per Disclaimer abwälzen.
    in jedem Fall nötig — Nutzer sind weiterhin selbst verantwortlich, Werte vor Versand zu
    prüfen. Diese vier Bausteine reduzieren das Risiko FALSCHER Berechnung, nicht die
    grundsätzliche Verantwortung des Vermieters.
+
+### 4.5 Datenbank-Verschlüsselung — Entscheidung
+
+Drei Optionen wurden gegenübergestellt (SQLCipher/volle Dateiverschlüsselung,
+Feld-Verschlüsselung nur sensibler Spalten, OS-Verschlüsselung + App-Passwort). Entscheidung:
+**Option C — OS-Verschlüsselung (FileVault/BitLocker) + das bereits implementierte
+App-Passwort.** Begründung: deckt das realistische Bedrohungsmodell einer lokalen
+Ein-Nutzer-App ("Laptop gestohlen/verloren") ohne zusätzlichen Code, ohne native
+Build-Abhängigkeit (die SQLCipher für PyInstaller auf macOS UND Windows erfordert hätte,
+ohne lokale Windows-Testmöglichkeit ein reales Risiko) und ohne die Suche zu brechen (wie es
+Feld-Verschlüsselung getan hätte). Keine weitere Implementierung nötig — bleibt so, bis sich
+das Bedrohungsmodell ändert (z. B. Weitergabe der rohen `.db`-Datei an Dritte würde SQLCipher
+wieder relevant machen, ist aber aktuell kein genannter Anwendungsfall).
+
+### 4.6 Passkey / Touch ID / Windows Hello — Design-Plan (noch nicht implementiert)
+
+**Kernidee**: Alle drei genannten Verfahren (Passkey, Touch ID, Windows Hello) laufen über
+denselben Standard — **WebAuthn**. Das ist die einzige Technologie, die plattformübergreifend
+(macOS + Windows) mit EINER Implementierung funktioniert, ohne separaten nativen Code
+(kein Swift/LocalAuthentication, kein C#/Windows-Hello-API nötig). Das Betriebssystem
+entscheidet beim Aufruf selbst, ob es Touch ID, Windows Hello, einen Hardware-Key oder einen
+synchronisierten Passkey anbietet — die App muss das nicht unterscheiden.
+
+**Architektur**:
+- Backend: `py_webauthn` (reines Python, keine kompilierte Abhängigkeit — passt gut zu den
+  bisherigen Build-Erfahrungen mit PyInstaller). Neue Tabelle `WebauthnCredential`
+  (id, credential_id, public_key, sign_count, erstellt_am, geraet_label) — mehrere Einträge
+  möglich, da ein Credential an ein Gerät gebunden ist (Mac + Windows-PC brauchen je eigene
+  Registrierung, beide entsperren dieselbe verlinkte DB).
+- Neue Endpunkte: `POST /auth/webauthn/register/begin` + `/complete` (Challenge
+  erzeugen/verifizieren, Public Key speichern), `POST /auth/webauthn/login/begin` + `/complete`
+  (Challenge erzeugen/Signatur verifizieren, Session-Token wie bisher ausstellen).
+- Frontend: `navigator.credentials.create()` bei Registrierung, `navigator.credentials.get()`
+  beim Login — Standard-Browser-API, kein neues Paket nötig. Zeigt auf `LoginOverlay.tsx` einen
+  zusätzlichen Button "Mit Touch ID / Windows Hello / Passkey anmelden" neben dem bestehenden
+  Passwort-Feld.
+
+**Offene technische Risiken (vor Implementierung zu klären)**:
+1. **pywebview-WebView-Kompatibilität ungeprüft**: WebAuthn-Unterstützung in der eingebetteten
+   WKWebView (macOS) bzw. WebView2 (Windows) ist versions-/OS-abhängig. WebView2 (Chromium-
+   basiert) unterstützt WebAuthn inkl. Plattform-Authenticator grundsätzlich, WKWebView ab
+   macOS 13 ebenfalls — beides aber nur durch echten Test auf beiden Plattformen verifizierbar,
+   nicht durch Doku-Lektüre allein. **UNVERIFIED — vor Implementierung an einem echten Windows-
+   Gerät testen, da hier kein lokaler Windows-Rechner zur Verfügung steht.**
+2. **Origin/RP-ID-Problem**: WebAuthn bindet Credentials an eine Origin. Die App läuft aktuell
+   vermutlich auf `http://127.0.0.1:<Port>` — WebAuthn behandelt `127.0.0.1` nicht zuverlässig
+   wie `localhost` als sicheren Kontext. Empfehlung: Server auf `http://localhost:<Port>` statt
+   `127.0.0.1` binden (kleine Konfigurationsänderung, kein Architektur-Umbau).
+3. **Passwort/Recovery-Code bleiben Pflicht-Fallback**: WebAuthn ist eine ZUSÄTZLICHE,
+   schnellere Entsperrmethode, nie die einzige — sonst kein Wiederherstellungsweg, wenn
+   Biometrie/Gerät ausfällt. Entspricht Nielsen-Heuristik "Fehler verhindern/Kontrolle beim
+   Nutzer" ([CLAUDE.md](CLAUDE.md) `design_and_quality`).
+4. **Pro-Gerät-Registrierung**: ein Passkey/Touch-ID-Credential ist an das jeweilige Gerät
+   gebunden — bei Nutzung auf Mac UND Windows-PC mit derselben verlinkten DB muss auf beiden
+   Geräten einmalig separat registriert werden. Kein Sync der Credentials zwischen den Geräten
+   (außer der Nutzer nutzt Apple/Google Passkey-Cloud-Sync, was aber ein größeres Konfigurations-
+   Thema wäre und hier nicht vorausgesetzt wird).
+
+**Status**: Reine Planung, "im Hinterkopf behalten" wie gewünscht — keine Implementierung
+ohne expliziten Auftrag.
