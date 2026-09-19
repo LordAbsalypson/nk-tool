@@ -585,7 +585,7 @@ export function VerbundPanel({ open, onClose, liegenschaften }: Props) {
                           {isMember ? (
                             <button
                               onClick={() => removeMitgliedMutation.mutate(l.id)}
-                              className="text-gray-300 hover:text-red-500"
+                              className="text-gray-400 dark:text-gray-500 hover:text-red-500"
                               title="Entfernen"
                             >
                               <XMarkIcon className="w-3.5 h-3.5" />

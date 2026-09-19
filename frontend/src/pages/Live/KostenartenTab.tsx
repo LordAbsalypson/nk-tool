@@ -231,7 +231,7 @@ function KostenartKachel({
         </div>
         <button
           onClick={() => setDeleteOffen(true)}
-          className="text-gray-300 hover:text-red-500"
+          className="text-gray-400 dark:text-gray-500 hover:text-red-500"
           title="Kostenart löschen"
         >
           <TrashIcon className="w-4 h-4" />
@@ -255,7 +255,7 @@ function KostenartKachel({
                 placeholder="—"
                 value={grund}
                 onChange={(e) => setEntwurf((v) => ({ ...v, grund: e.target.value }))}
-                className="w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-right"
+                className="input text-sm py-1 text-right"
               />
               <span className="text-[10px] text-gray-400 shrink-0">€/m²</span>
             </div>
@@ -269,7 +269,7 @@ function KostenartKachel({
                 placeholder="—"
                 value={verbrauch}
                 onChange={(e) => setEntwurf((v) => ({ ...v, verbrauch: e.target.value }))}
-                className="w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-right"
+                className="input text-sm py-1 text-right"
               />
               <span className="text-[10px] text-gray-400 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis].split("/")[1]}</span>
             </div>
@@ -283,7 +283,7 @@ function KostenartKachel({
             placeholder="—"
             value={proEinheit}
             onChange={(e) => setEntwurf((v) => ({ ...v, pro_einheit: e.target.value }))}
-            className="w-full text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-right"
+            className="input text-sm py-1 text-right"
           />
           <span className="text-[10px] text-gray-400 w-24 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis]}</span>
         </div>

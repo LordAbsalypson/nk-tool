@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 import type { PersonenSplitPdfErgebnis, PersonenSplitVorlageOut } from "../../types";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
+import { PdfPreviewModal } from "./PdfPreviewModal";
 
 interface Zeile {
   name: string;
@@ -40,6 +41,8 @@ export function PersonenSplitModal({
   const [zeilen, setZeilen] = useState<Zeile[]>([{ name: "", anteil: "" }]);
   const [merken, setMerken] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [ergebnisse, setErgebnisse] = useState<PersonenSplitPdfErgebnis[] | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
 
   const { data: vorlage } = useQuery({
     queryKey: ["personen-split-vorlage", wohnungId],
@@ -52,6 +55,7 @@ export function PersonenSplitModal({
     return () => {
       setInitialized(false);
       setMerken(false);
+      setErgebnisse(null);
     };
   }, [open]);
 
@@ -86,17 +90,49 @@ export function PersonenSplitModal({
           speichern: merken,
         }
       ),
-    onSuccess: (ergebnisse) => {
-      ergebnisse.forEach((e, i) => {
-        setTimeout(() => window.open(e.download_url, "_blank"), i * 400);
-      });
-      onClose();
-    },
+    onSuccess: (result) => setErgebnisse(result),
     onError: (e: Error) => onError(e.message),
   });
 
   function zeileAendern(i: number, feld: keyof Zeile, wert: string) {
     setZeilen((z) => z.map((row, idx) => (idx === i ? { ...row, [feld]: wert } : row)));
+  }
+
+  if (pdfPreview) {
+    return (
+      <PdfPreviewModal
+        downloadUrl={pdfPreview.url}
+        dateiname={pdfPreview.dateiname}
+        onClose={() => setPdfPreview(null)}
+      />
+    );
+  }
+
+  if (ergebnisse) {
+    return (
+      <Modal open={open} title={`Auf Bewohner aufteilen — ${wohnungBezeichnung}`} onClose={onClose}>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+          {ergebnisse.length} PDF{ergebnisse.length !== 1 ? "s" : ""} erstellt — zum Ansehen anklicken:
+        </p>
+        <div className="space-y-2">
+          {ergebnisse.map((e) => (
+            <button
+              key={e.dateiname}
+              className="btn btn-secondary w-full justify-between flex"
+              onClick={() => setPdfPreview({ url: e.download_url, dateiname: e.dateiname })}
+            >
+              <span>{e.name} ({e.anteil_prozent}%)</span>
+              <span className="text-xs text-gray-400">{e.dateiname}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <button className="btn btn-primary" onClick={onClose}>
+            Fertig
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   return (
@@ -127,7 +163,7 @@ export function PersonenSplitModal({
             <span className="text-xs text-gray-400">%</span>
             <button
               type="button"
-              className="text-gray-300 hover:text-red-600 disabled:opacity-30"
+              className="text-gray-400 dark:text-gray-500 hover:text-red-600 disabled:opacity-30"
               disabled={zeilen.length <= 1}
               onClick={() => setZeilen((z0) => z0.filter((_, idx) => idx !== i))}
             >

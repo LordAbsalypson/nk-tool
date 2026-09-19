@@ -7,6 +7,7 @@ import { Spinner } from "../../components/ui/Spinner";
 import { AusprobierenModal } from "../../components/ui/AusprobierenModal";
 import { PersonenSplitModal } from "../../components/ui/PersonenSplitModal";
 import { SammelabrechnungModal } from "../../components/ui/SammelabrechnungModal";
+import { PdfPreviewModal } from "../../components/ui/PdfPreviewModal";
 import { useToast } from "../../hooks/useToast";
 
 interface PdfAbschnitte {
@@ -77,6 +78,7 @@ function MieterZeile({
   const [verbrauchEntwurf, setVerbrauchEntwurf] = useState("");
   const [verbrauchVorschau, setVerbrauchVorschau] = useState<SchluesselMieter | null>(null);
   const [verbrauchVorschauLoading, setVerbrauchVorschauLoading] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
   const { addToast } = useToast();
   const qc = useQueryClient();
 
@@ -152,8 +154,7 @@ function MieterZeile({
         abschnitte
       ),
     onSuccess: (d) => {
-      addToast("success", `PDF erstellt: ${d.dateiname}`);
-      window.open(d.download_url, "_blank");
+      setPdfPreview({ url: d.download_url, dateiname: d.dateiname });
     },
     onError: (e: Error) => onError(e.message),
   });
@@ -243,7 +244,7 @@ function MieterZeile({
                   setNameEntwurf(m.anzeigename);
                   setNameBearbeiten(true);
                 }}
-                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-blue-600 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity"
               >
                 <PencilIcon className="w-3 h-3" />
               </button>
@@ -307,9 +308,9 @@ function MieterZeile({
                                   setVerbrauchEntwurf(String(z.einheiten ?? ""));
                                 }
                               }}
-                              className="text-gray-300 hover:text-blue-600"
+                              className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
                             >
-                              <PencilIcon className="w-3 h-3" />
+                              <PencilIcon className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </td>
@@ -328,7 +329,7 @@ function MieterZeile({
                                 autoFocus
                                 value={verbrauchEntwurf}
                                 onChange={(e) => setVerbrauchEntwurf(e.target.value)}
-                                className="w-28 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded text-right"
+                                className="input w-28 py-1 text-xs text-right"
                               />
                               <span className="text-gray-400">
                                 {z.zaehler_typ ? ZAEHLER_TYP_EINHEIT[z.zaehler_typ] : ""}
@@ -441,6 +442,14 @@ function MieterZeile({
           onError={onError}
         />
       )}
+
+      {pdfPreview && (
+        <PdfPreviewModal
+          downloadUrl={pdfPreview.url}
+          dateiname={pdfPreview.dateiname}
+          onClose={() => setPdfPreview(null)}
+        />
+      )}
     </div>
   );
 }
@@ -452,12 +461,12 @@ interface Props {
 }
 
 export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
-  const { addToast } = useToast();
   const [kombiModus, setKombiModus] = useState(false);
   const [kombiAusgewaehlt, setKombiAusgewaehlt] = useState<Set<number>>(new Set());
   const [kombiName, setKombiName] = useState("");
   const [abschnitte, setAbschnitte] = useState<PdfAbschnitte>(ABSCHNITTE_DEFAULT);
   const [sammelOffen, setSammelOffen] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
 
   const { data: mieterListe = [], isLoading } = useQuery({
     queryKey: ["schluessel-abrechnung", periodeId],
@@ -482,8 +491,7 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
         }
       ),
     onSuccess: (d) => {
-      addToast("success", `Kombinierte PDF erstellt: ${d.dateiname}`);
-      window.open(d.download_url, "_blank");
+      setPdfPreview({ url: d.download_url, dateiname: d.dateiname });
       setKombiModus(false);
       setKombiAusgewaehlt(new Set());
       setKombiName("");
@@ -651,6 +659,14 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
           periodeId={periodeId}
           liegenschaftName={liegenschaftName}
           onError={onError}
+        />
+      )}
+
+      {pdfPreview && (
+        <PdfPreviewModal
+          downloadUrl={pdfPreview.url}
+          dateiname={pdfPreview.dateiname}
+          onClose={() => setPdfPreview(null)}
         />
       )}
     </div>

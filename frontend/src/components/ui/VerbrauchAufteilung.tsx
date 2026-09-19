@@ -179,7 +179,7 @@ export function VerbrauchAufteilungInhalt({
                     placeholder="nach Tagen"
                     value={wertText}
                     onChange={(e) => setEntwurf((v) => ({ ...v, [m.id]: e.target.value }))}
-                    className="w-24 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded text-right"
+                    className="input w-24 py-1 text-sm text-right"
                   />
                   <span className="text-xs text-gray-400">{info.einheit}</span>
                   <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">

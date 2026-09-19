@@ -455,7 +455,7 @@ function ZaehlerZelle({
         </div>
         <button
           onClick={() => setDetailZaehler(z)}
-          className="text-gray-300 hover:text-gray-600 px-0.5"
+          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-0.5"
           title="Details, Zwischenablesungen, Notizen bearbeiten"
         >
           <EllipsisHorizontalIcon className="w-4 h-4" />

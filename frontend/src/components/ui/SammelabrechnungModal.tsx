@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
+import { PdfPreviewModal } from "./PdfPreviewModal";
 
 interface Props {
   open: boolean;
@@ -20,6 +21,7 @@ export function SammelabrechnungModal({ open, onClose, periodeId, liegenschaftNa
   const [vorauszahlungen, setVorauszahlungen] = useState(true);
   const [saldo, setSaldo] = useState(true);
   const [legende, setLegende] = useState(true);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
 
   const erstellenMutation = useMutation({
     mutationFn: () =>
@@ -27,12 +29,22 @@ export function SammelabrechnungModal({ open, onClose, periodeId, liegenschaftNa
         `/perioden/${periodeId}/sammelabrechnung/pdf`,
         { zaehlerstaende, vorauszahlungen, saldo, legende }
       ),
-    onSuccess: (d) => {
-      window.open(d.download_url, "_blank");
-      onClose();
-    },
+    onSuccess: (d) => setPdfPreview({ url: d.download_url, dateiname: d.dateiname }),
     onError: (e: Error) => onError(e.message),
   });
+
+  if (pdfPreview) {
+    return (
+      <PdfPreviewModal
+        downloadUrl={pdfPreview.url}
+        dateiname={pdfPreview.dateiname}
+        onClose={() => {
+          setPdfPreview(null);
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <Modal open={open} title={`Sammelabrechnung — ${liegenschaftName}`} onClose={onClose}>

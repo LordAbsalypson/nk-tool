@@ -302,7 +302,7 @@ function TodoItem({
       {!isEditing && todo.erledigt && (
         <button
           onClick={onDelete}
-          className="flex-shrink-0 text-gray-300 hover:text-red-400 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          className="flex-shrink-0 text-gray-400 dark:text-gray-500 hover:text-red-400 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           title="Löschen"
         >
           <XMarkIcon className="w-3.5 h-3.5" />

@@ -76,6 +76,22 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
   return json.data;
 }
 
+/** Lädt eine Binärdatei (z. B. PDF) authentifiziert als Blob. ``fullPath``
+ * ist der vollständige, vom Backend zurückgegebene ``download_url``-Pfad
+ * (schon inkl. ``/api/v1``-Präfix) — NICHT durch ``BASE`` erneut voranstellen. */
+async function getBlob(fullPath: string): Promise<Blob> {
+  const res = await fetch(fullPath, { headers: authHeaders() });
+  if (res.status === 401) {
+    setAuthToken(null);
+    onUnauthorized?.();
+    throw new Error("Anmeldung erforderlich.");
+  }
+  if (!res.ok) {
+    throw new Error(`Datei konnte nicht geladen werden (HTTP ${res.status}).`);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body: unknown) => request<T>("POST", path, body),
@@ -83,4 +99,5 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
   delete: <T>(path: string) => request<T>("DELETE", path),
   upload: <T>(path: string, file: File) => uploadFile<T>(path, file),
+  getBlob,
 };

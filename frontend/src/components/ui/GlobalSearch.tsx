@@ -229,7 +229,7 @@ export function GlobalSearch({ onNavigate, onSaved, onError }: Props) {
                         });
                         setOffen(false);
                       }}
-                      className="text-gray-300 hover:text-blue-600 px-1 shrink-0"
+                      className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 px-1 shrink-0"
                       title="Zur passenden Seite springen"
                     >
                       <ArrowRightIcon className="w-4 h-4" />
