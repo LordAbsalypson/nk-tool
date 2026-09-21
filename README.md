@@ -120,11 +120,11 @@ Haftung übernommen.
 
 ### Lizenz
 
-**[PolyForm Noncommercial License 1.0.0](LICENSE)** — kostenlos für nicht-kommerzielle Nutzung,
-insbesondere für private Vermieter, die das Tool für die eigenen Immobilien einsetzen. Für
-kommerzielle Nutzung (z. B. gewerbliche Hausverwaltung, Weiterverkauf, gehosteter Dienst für
-Dritte) ist eine separate, kostenpflichtige Lizenz nötig — dazu bitte ein Issue eröffnen oder den
-Maintainer kontaktieren. Details siehe [`LICENSE`](LICENSE) und [`LEGAL_NOTES.md`](LEGAL_NOTES.md).
+**[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** — kostenlos für jede Nutzung,
+auch gewerblich. Wer eine modifizierte Version als Netzwerkdienst (z. B. gehostetes Angebot für
+Dritte) betreibt, muss den vollständigen, angepassten Quellcode dieser Version öffentlich
+zugänglich machen (§13 AGPL, "Network Use"). Details siehe [`LICENSE`](LICENSE) und
+[`LEGAL_NOTES.md`](LEGAL_NOTES.md).
 
 ### Mitwirken
 
@@ -254,11 +254,11 @@ errors in calculation, presentation, or legal compliance.
 
 ### License
 
-**[PolyForm Noncommercial License 1.0.0](LICENSE)** — free for noncommercial use, in particular
-for private landlords running this for their own properties. Commercial use (e.g. a professional
-property-management business, resale, or offering it as a hosted service to third parties)
-requires a separate paid license — open an issue or contact the maintainer. See [`LICENSE`](LICENSE)
-and [`LEGAL_NOTES.md`](LEGAL_NOTES.md) for details.
+**[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** — free for any use, including
+commercial. Anyone running a modified version as a network service (e.g. a hosted offering for
+third parties) must make the complete, modified source code of that version publicly available
+(AGPL §13, "Network Use"). See [`LICENSE`](LICENSE) and [`LEGAL_NOTES.md`](LEGAL_NOTES.md) for
+details.
 
 ### Contributing
 

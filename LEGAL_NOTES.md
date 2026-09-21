@@ -37,8 +37,16 @@ Fall nicht ab, weil es sich um reguläre, absichtlich getrackte Dokumentationsda
 Diese Dateien sind bewusst NICHT Teil dieses (öffentlichen) Repos — siehe
 `scripts/sync-to-public.sh` Whitelist.
 
-**Einschätzung für einen Public-Release: hoch**, solange diese Dateien unverändert enthalten sind.
-Für das aktuelle **private** Repo unkritisch (kein Dritt-Zugriff).
+**Status: strukturell mitigiert (Update 2026-09-21).** `scripts/sync-to-public.sh` nutzt seit der
+Session, in der dieser Fund gemacht wurde, eine explizite Whitelist (`--include`-Liste), die
+`CLAUDE.md` und `NEBENKOSTEN_STATUS.md` NICHT enthält — der Sync-Mechanismus selbst kann diese
+Dateien also gar nicht mehr ins öffentliche Repo übertragen, unabhängig davon, was ein Mensch
+manuell vergisst. Ein `--exclude="*"`-Fallback am Ende der Whitelist (Zeile 74 des Skripts) fängt
+zusätzlich jede neue, nicht explizit freigegebene Datei ab.
+
+**Einschätzung für einen Public-Release: niedrig** (strukturell durch die Whitelist mitigiert,
+solange `scripts/sync-to-public.sh` nicht verändert wird, ohne diesen Schutz zu erhalten).
+Für das aktuelle **private** Repo ohnehin unkritisch (kein Dritt-Zugriff).
 
 **Handlungsempfehlung vor JEDER Umstellung auf öffentlich:**
 - `CLAUDE.md` und `NEBENKOSTEN_STATUS.md` vor Public-Release entweder (a) vollständig anonymisieren/
@@ -174,11 +182,15 @@ für ein privates/gemeinnütziges Nischentool (Vermieter-Community) ist das i. d
 
 **Einschätzung: AGPL-3.0 am besten geeignet.**
 
+**Status: entschieden und umgesetzt (2026-09-21).** `LICENSE` enthält den vollständigen
+AGPL-3.0-Text der FSF, README (DE+EN) wurde entsprechend angepasst. Der vormalige Widerspruch
+zwischen `LICENSE` (PolyForm Noncommercial) und dieser Empfehlung ist damit aufgelöst.
+
 ---
 
 ## Zusammenfassung — Handlungsempfehlungen (priorisiert)
 
-1. **Lizenz**: AGPL-3.0 als LICENSE-Datei hinzufügen.
+1. **Lizenz**: AGPL-3.0 als LICENSE-Datei hinzufügen. ✅ Erledigt (2026-09-21).
 2. **README-Disclaimer**: Haftungsausschluss + "kein Rechtsdienstleister" + "Betreiber ist
    DSGVO-Verantwortlicher" als eigener Abschnitt.
 3. **README-Formulierung**: Keine Konkurrenznennung ("ista"), keine Begriffe wie "rechtssicher"/
@@ -188,6 +200,12 @@ für ein privates/gemeinnütziges Nischentool (Vermieter-Community) ist das i. d
    `backup_safe/` (zusätzlich zur bestehenden, aktuell sauberen `.gitignore`).
 6. **Vor Veröffentlichung**: Anwaltliche Prüfung von LICENSE + README-Disclaimer-Text, insbesondere
    Haftungsausschluss-Formulierung (Punkt 2) und finaler ista-Neutralitäts-Check (Punkt 3).
+   **ista-Neutralitäts-Check durchgeführt (2026-09-21):** `grep -i "ista\|techem"` über
+   `README.md`, `FEATURES_ROADMAP.md`, `ARCHITECTURE.md`, `AI_COMMANDS.md` — einzige Treffer sind
+   die 4 README-Stellen ("Ersatz für teure externe Abrechnungsdienste (z. B. ista)" DE+EN), jeweils
+   rein vergleichend als Beispiel markiert ("z. B."), keine Herabsetzung. Keine Treffer für
+   "rechtssicher"/"garantiert"/"geprüft" im README. Bleibt: anwaltliche Prüfung ersetzt dieser
+   automatisierte Check nicht, nur die technische Vorprüfung ist damit abgeschlossen.
 
 ---
 
