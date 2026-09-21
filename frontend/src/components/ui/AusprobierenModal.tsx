@@ -84,15 +84,23 @@ export function AusprobierenModal({ open, onClose, periodeId, mieter, onSaved, o
     [mieter.zeilen]
   );
 
-  // Einmalig initialisieren, sobald alle Grunddaten da sind (nicht bei jedem Re-Fetch überschreiben)
+  // Nach dem Schließen zurücksetzen (Modal bleibt gemountet, siehe VorschauModal-Pattern).
   useEffect(() => {
-    if (!open) {
+    if (open) return;
+    return () => {
       setInitialized(false);
       setPreview(null);
       setPendingConfirm(null);
-      return;
-    }
-    if (initialized || !mieterVoll || !wohnung || kostenartenWerte.length === 0) return;
+    };
+  }, [open]);
+
+  // Einmalig initialisieren, sobald alle Grunddaten da sind (nicht bei jedem Re-Fetch
+  // überschreiben). Bewusste Ausnahme: Startwerte hängen von async geladenen Daten ab,
+  // ein Renderzeit-Ersatz würde die 5 einzelnen State-Variablen zu einem Objekt
+  // zusammenführen müssen (größerer Umbau, siehe auch PersonenSplitModal.tsx).
+  useEffect(() => {
+    if (!open || initialized || !mieterVoll || !wohnung || kostenartenWerte.length === 0) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setPersonen(String(mieterVoll.anzahl_personen));
     setFlaeche(String(wohnung.flaeche_m2));
     const saetzeInit: Record<number, SatzEntwurf> = {};
@@ -108,6 +116,7 @@ export function AusprobierenModal({ open, onClose, periodeId, mieter, onSaved, o
     setSaetze(saetzeInit);
     setBetraege(betraegeInit);
     setInitialized(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, initialized, mieterVoll, wohnung, kostenartenWerte, relevanteKostenartIds, wertById, kostenartById, mieter.zeilen]);
 
   const personenGeaendert = mieterVoll != null && personen !== "" && Number(personen) !== mieterVoll.anzahl_personen;
@@ -137,6 +146,7 @@ export function AusprobierenModal({ open, onClose, periodeId, mieter, onSaved, o
   useEffect(() => {
     if (!open || !initialized) return;
     if (!anyTouched) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPreview(null);
       return;
     }

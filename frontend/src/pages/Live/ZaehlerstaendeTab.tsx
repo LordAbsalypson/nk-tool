@@ -22,7 +22,7 @@ import type {
 } from "../../types";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal, ConfirmModal } from "../../components/ui/Modal";
-import { typLabels, typEinheit, HEIZUNG_TYPEN } from "../Stage1/ZaehlerTab";
+import { typLabels, typEinheit, HEIZUNG_TYPEN } from "../Stage1/zaehlerConstants";
 import { VerbrauchAufteilungInhalt } from "../../components/ui/VerbrauchAufteilung";
 
 const artLabels: Record<ZaehlerstandArt, string> = {
@@ -88,7 +88,7 @@ function AblesungForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<z.input<typeof schema>, any, FormData>({
+  } = useForm<z.input<typeof schema>, unknown, FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       ablesedatum: "",

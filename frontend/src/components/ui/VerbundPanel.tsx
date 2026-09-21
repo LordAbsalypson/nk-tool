@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,19 +92,27 @@ function VorschauModal({
     enabled: open && !!kosten,
   });
 
-  // Perioden + Kostenarten pro Liegenschaft laden
-  const periodeQueries = liegenschaften.map((l) => ({
-    liegenschaft: l,
-    perioden: useQuery({
+  // Perioden + Kostenarten pro Liegenschaft laden — useQueries statt useQuery in .map(),
+  // da die Zahl der Liegenschaften sich zwischen Renders ändern kann (Rules of Hooks
+  // verbieten Hook-Aufrufe mit wechselnder Anzahl/Reihenfolge in einer Schleife).
+  const periodenResults = useQueries({
+    queries: liegenschaften.map((l) => ({
       queryKey: ["perioden", l.id],
       queryFn: () => api.get<Abrechnungsperiode[]>(`/liegenschaften/${l.id}/perioden`),
       enabled: open && step === "periode",
-    }),
-    kostenarten: useQuery({
+    })),
+  });
+  const kostenartenResults = useQueries({
+    queries: liegenschaften.map((l) => ({
       queryKey: ["kostenarten", l.id],
       queryFn: () => api.get<Kostenart[]>(`/liegenschaften/${l.id}/kostenarten`),
       enabled: open && step === "periode",
-    }),
+    })),
+  });
+  const periodeQueries = liegenschaften.map((l, i) => ({
+    liegenschaft: l,
+    perioden: periodenResults[i],
+    kostenarten: kostenartenResults[i],
   }));
 
   const anwendenMutation = useMutation({
@@ -124,7 +132,11 @@ function VorschauModal({
   });
 
   useEffect(() => {
-    if (!open) { setStep("vorschau"); setPeriodeConfig({}); }
+    if (open) return;
+    return () => {
+      setStep("vorschau");
+      setPeriodeConfig({});
+    };
   }, [open]);
 
   if (!open || !kosten) return null;
@@ -348,7 +360,7 @@ function KostenForm({
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<z.input<typeof kostenSchema>, any, KostenForm>({
+  } = useForm<z.input<typeof kostenSchema>, unknown, KostenForm>({
     resolver: zodResolver(kostenSchema),
     defaultValues: { schluessel_typ: "wohnungsanzahl", ...initial },
   });

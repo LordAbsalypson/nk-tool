@@ -15,7 +15,7 @@ import { Badge } from "../../components/ui/Badge";
 import { Modal, ConfirmModal } from "../../components/ui/Modal";
 import { WohnungAssistent } from "../../components/ui/WohnungAssistent";
 import { nachWohnungsnummer } from "../../utils/sort";
-import { typLabels, HEIZUNG_TYPEN } from "./ZaehlerTab";
+import { typLabels, HEIZUNG_TYPEN } from "./zaehlerConstants";
 
 // ── Wohnung bearbeiten (im Detail-Popup) ─────────────────────────────────────
 
@@ -48,7 +48,7 @@ function WohnungForm({
     handleSubmit,
     watch,
     formState: { errors, isDirty },
-  } = useForm<z.input<typeof wohnungSchema>, any, WohnungFormData>({
+  } = useForm<z.input<typeof wohnungSchema>, unknown, WohnungFormData>({
     resolver: zodResolver(wohnungSchema),
     defaultValues: initial,
   });
@@ -494,7 +494,7 @@ function MieterForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<z.input<typeof mieterSchema>, any, MieterFormData>({
+  } = useForm<z.input<typeof mieterSchema>, unknown, MieterFormData>({
     resolver: zodResolver(mieterSchema),
     defaultValues: {
       anzeigename: "",

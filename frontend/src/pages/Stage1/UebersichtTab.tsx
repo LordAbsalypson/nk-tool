@@ -70,7 +70,7 @@ export function UebersichtTab({ liegenschaft, onSaved, onError, onSetSaveFn }: P
     handleSubmit,
     watch,
     formState: { errors, isDirty },
-  } = useForm<z.input<typeof schema>, any, FormData>({
+  } = useForm<z.input<typeof schema>, unknown, FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: liegenschaft.name,

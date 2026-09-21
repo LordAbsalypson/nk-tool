@@ -26,7 +26,7 @@ const verteilungsKeys = [
 
 /** Klartext für die Auswahl — beschreibt, was mit den Kosten passiert,
  *  nicht wie das Feld in der Datenbank heißt. */
-export const verteilungsLabels: Record<string, string> = {
+const verteilungsLabels: Record<string, string> = {
   nutzeinheit: "Pro Wohnung — jede Wohnung zahlt gleich viel",
   m2_wohnflaeche: "Nach Wohnfläche — größere Wohnung zahlt mehr",
   personen: "Nach Personen — mehr Bewohner zahlen mehr",

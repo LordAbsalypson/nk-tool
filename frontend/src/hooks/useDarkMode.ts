@@ -13,7 +13,9 @@ export function useDarkMode() {
     document.documentElement.classList.toggle("dark", dark);
     try {
       localStorage.setItem("nk-theme", dark ? "dark" : "light");
-    } catch {}
+    } catch {
+      // localStorage nicht verfügbar (z. B. privater Modus) — Theme bleibt nur für diese Sitzung aktiv.
+    }
   }, [dark]);
 
   return [dark, setDark] as const;
