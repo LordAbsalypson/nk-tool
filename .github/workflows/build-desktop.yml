@@ -17,6 +17,22 @@ on:
       - ".github/workflows/build-desktop.yml"
 
 jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python-Abhängigkeiten installieren
+        run: pip install -r backend/requirements.txt
+
+      - name: Backend-Tests (pytest)
+        working-directory: backend
+        run: python -m pytest tests/ -v
+
   build-macos:
     runs-on: macos-latest
     steps:
