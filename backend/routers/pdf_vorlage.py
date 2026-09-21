@@ -6,12 +6,13 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import PdfVorlage
+from models import Liegenschaft, PdfVorlage
 from pdf_abrechnung import AbrechnungPdfDaten, AbrechnungZeile, erzeuge_abrechnung_pdf
 from pdf_vorlage_utils import basis_pdf_kwargs
 from schemas import ApiResponse, PdfVorlageIn, PdfVorlageOut
@@ -56,13 +57,13 @@ def set_pdf_vorlage(body: PdfVorlageIn, db: Session = Depends(get_db)) -> ApiRes
     return ApiResponse(ok=True, data=PdfVorlageOut.model_validate(obj))
 
 
-def _vorschau_pdf_bytes(vorlage) -> bytes:
+def _vorschau_pdf_bytes(vorlage: "PdfVorlage | PdfVorlageIn") -> bytes:
     """Baut das Beispiel-PDF aus einem vorlage-artigen Objekt (PdfVorlage ODER
     PdfVorlageIn — beide haben dieselben Feldnamen, basis_pdf_kwargs greift
     nur per getattr zu). Schreibt in ein eigenes Tempdir pro Aufruf, damit
     parallele Vorschau-Anfragen sich nie gegenseitig eine Datei überschreiben."""
     daten = AbrechnungPdfDaten(
-        **basis_pdf_kwargs(vorlage, _DUMMY_LIEG),
+        **basis_pdf_kwargs(vorlage, cast(Liegenschaft, _DUMMY_LIEG)),
         empfaenger_name="Max Mustermieter",
         empfaenger_strasse=f"{vorlage.absender_strasse or 'Musterstraße 1'}, Whg 3",
         empfaenger_ort=f"{vorlage.absender_plz or '12345'} {vorlage.absender_ort or 'Musterstadt'}",

@@ -82,6 +82,7 @@ def setup(body: SetupBody, db: Session = Depends(get_db)) -> ApiResponse:
         row.token_secret = auth.generate_token_secret()
         row.geaendert_am = auth._now_iso()
     db.commit()
+    assert row.token_secret is not None  # in beiden Zweigen oben frisch gesetzt
     token = auth.create_token(row.token_secret)
     # recovery_code nur JETZT zurückgegeben — danach nirgends im Klartext gespeichert.
     return ApiResponse(ok=True, data={"token": token, "recoveryCode": recovery_code})

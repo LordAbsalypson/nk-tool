@@ -12,7 +12,7 @@ from database import SessionLocal
 from models import DirektKostenart, DirektKostenartWert, SchluesselPreis
 
 # (Name, Verteilungsbasis, hat_split, [alte Schlüssel für preis_pro_einheit ODER (grund_key, verbrauch_key)])
-KOSTENARTEN_PLAN = [
+KOSTENARTEN_PLAN: list[tuple[str, str, bool, str | tuple[str, str]]] = [
     ("Heizung", "kwh_heizung", True, ("heizung_grundkosten_m2", "heizung_verbrauch_kwh")),
     ("Warmwasser", "m3_warmwasser", True, ("warmwasser_grundkosten_m2", "warmwasser_verbrauch_m3")),
     ("Ab- und Kaltwasser", "m3_wasser_gesamt", False, "wasser_abwasser_m3"),
@@ -59,6 +59,7 @@ def main() -> None:
             for name, basis, split, keys in KOSTENARTEN_PLAN:
                 ka = kostenart_by_name[name]
                 if split:
+                    assert isinstance(keys, tuple)
                     grund_key, verbrauch_key = keys
                     grund = preise.get(grund_key)
                     verbrauch = preise.get(verbrauch_key)
@@ -76,6 +77,7 @@ def main() -> None:
                     )
                     anzahl_werte += 1
                 else:
+                    assert isinstance(keys, str)
                     wert = preise.get(keys)
                     if wert is None:
                         continue

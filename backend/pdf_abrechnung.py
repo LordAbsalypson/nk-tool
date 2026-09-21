@@ -122,7 +122,7 @@ def _footer_reserve_mm(fusszeile_text: str | None) -> float:
 
 def _draw_fusszeile(
     canvas: Canvas,
-    _doc,
+    _doc: object,
     text: str,
     rand_unten_mm: float,
     rand_links_mm: float,
@@ -353,6 +353,7 @@ def erzeuge_abrechnung_pdf(daten: AbrechnungPdfDaten, output_path: Path) -> Path
         if doc.page <= 1 or i == len(stufen) - 1:
             break
 
+    assert letztes_ergebnis is not None  # stufen ist nie leer, Schleife läuft mind. 1x
     output_path.write_bytes(letztes_ergebnis)
     return output_path
 

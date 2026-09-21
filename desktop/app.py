@@ -71,7 +71,7 @@ import webview
 from webview import FileDialog
 
 APP_NAME = "NK-Tool"
-APP_VERSION = "0.1.0"
+APP_VERSION = "1.0.0"
 
 
 def _resource_root() -> Path:

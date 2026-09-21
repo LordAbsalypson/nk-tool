@@ -50,6 +50,7 @@ def list_kostenpositionen(periode_id: int, db: Session = Depends(get_db)) -> Api
             .filter(Kostenposition.split_gruppe.in_(gruppen))
             .all()
         ):
+            assert g.split_gruppe is not None  # garantiert durch den .in_(gruppen)-Filter oben
             gruppen_rows.setdefault(g.split_gruppe, []).append(g)
 
     out = []

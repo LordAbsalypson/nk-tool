@@ -12,7 +12,7 @@ interface FooterProps {
 export function Footer({ dark, setDark, onGlossar, onTodo, onPdfVorlage, onSettings }: FooterProps) {
   return (
     <footer className="h-9 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4 shrink-0 text-xs text-gray-500 dark:text-gray-400">
-      <span className="select-none text-gray-400 dark:text-gray-500">NK-Tool v1.0</span>
+      <span className="select-none text-gray-400 dark:text-gray-500">NK-Tool v1.0.0</span>
       <span className="text-gray-300 dark:text-gray-600 select-none">|</span>
       <button
         onClick={onGlossar}

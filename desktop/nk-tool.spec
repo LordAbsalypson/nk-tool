@@ -88,7 +88,7 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "NK-Tool",
         "CFBundleDisplayName": "NK-Tool",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleShortVersionString": "1.0.0",
         "NSHighResolutionCapable": True,
     },
 )

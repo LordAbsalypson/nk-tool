@@ -197,7 +197,7 @@ def suche(
         if wohnung_nr is None:
             return True
         nr = re.search(r"(\d+)", w.bezeichnung or "")
-        return bool(nr) and int(nr.group(1)) == wohnung_nr
+        return nr is not None and int(nr.group(1)) == wohnung_nr
 
     def lieg_name(lid: int) -> str:
         l = liegenschaften.get(lid)
@@ -395,7 +395,7 @@ def suche(
                         Kostenposition.abrechnungsperiode_id == pid)
                 .all()
             ) if pid else []
-            summe = sum(p.betrag_brutto for p in positionen)
+            summe = sum(kp.betrag_brutto for kp in positionen)
             treffer.append(SucheTreffer(
                 id=f"kostenart-{ka.id}",
                 kategorie="Kosten",
@@ -408,17 +408,17 @@ def suche(
                 periode_id=pid, score=80,
             ))
 
-            for p in positionen:
-                if not _text_treffer(tokens, p.beschreibung, ka.name) and "kosten" not in felder:
+            for kp in positionen:
+                if not _text_treffer(tokens, kp.beschreibung, ka.name) and "kosten" not in felder:
                     continue
                 treffer.append(SucheTreffer(
-                    id=f"kostenposition-{p.id}",
+                    id=f"kostenposition-{kp.id}",
                     kategorie="Kosten",
-                    titel=f"{ka.name} — {p.beschreibung}",
-                    kontext=f"{lname}" + (f" · {p.datum}" if p.datum else ""),
-                    wert_text=_eur(p.betrag_brutto),
-                    wert_zahl=p.betrag_brutto, einheit="€",
-                    entity_typ="kostenposition", entity_id=p.id, feld="betrag_brutto",
+                    titel=f"{ka.name} — {kp.beschreibung}",
+                    kontext=f"{lname}" + (f" · {kp.datum}" if kp.datum else ""),
+                    wert_text=_eur(kp.betrag_brutto),
+                    wert_zahl=kp.betrag_brutto, einheit="€",
+                    entity_typ="kostenposition", entity_id=kp.id, feld="betrag_brutto",
                     liegenschaft_id=ka.liegenschaft_id, stage=2, tab="kostenarten",
                     periode_id=pid, score=85,
                 ))

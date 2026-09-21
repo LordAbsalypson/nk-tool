@@ -11,7 +11,7 @@ from models import Liegenschaft, PdfVorlage
 from pdf_abrechnung import RAND_LINKS_MM, RAND_OBEN_MM, RAND_RECHTS_MM, RAND_UNTEN_MM
 
 if TYPE_CHECKING:
-    from schemas import PdfAbschnitteOptionen
+    from schemas import PdfAbschnitteOptionen, PdfVorlageIn
 
 
 def fmt_datum_de(iso: str) -> str:
@@ -20,7 +20,7 @@ def fmt_datum_de(iso: str) -> str:
 
 
 def basis_pdf_kwargs(
-    vorlage: PdfVorlage | None,
+    vorlage: "PdfVorlage | PdfVorlageIn | None",
     lieg: Liegenschaft,
     optionen: "PdfAbschnitteOptionen | None" = None,
 ) -> dict:

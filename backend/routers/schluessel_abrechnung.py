@@ -58,10 +58,12 @@ from schemas import (
     SchluesselMieterOut,
     SchluesselPreiseSet,
     SchluesselPreisOut,
+    SchluesselZeileOut,
     VorschauRequest,
     VorschauVerbrauchOverride,
 )
 from schluessel_engine import (
+    SchluesselMieterErgebnis,
     berechne_schluessel_mieter,
     berechne_schluessel_periode,
     gesamteinheiten_vorschlag,
@@ -156,7 +158,7 @@ def set_schluesselpreise(
         .all()
     )
     andere_namen = [
-        db.get(Liegenschaft, p.liegenschaft_id).name for p in andere
+        lieg.name for p in andere if (lieg := db.get(Liegenschaft, p.liegenschaft_id)) is not None
     ]
     return ApiResponse(
         ok=True,
@@ -654,7 +656,9 @@ def set_direkt_kostenart_wert(
         )
         .first()
     )
-    andere_namen = [db.get(Liegenschaft, p.liegenschaft_id).name for p in andere]
+    andere_namen = [
+        lieg.name for p in andere if (lieg := db.get(Liegenschaft, p.liegenschaft_id)) is not None
+    ]
     return ApiResponse(
         ok=True,
         data={
@@ -749,7 +753,11 @@ def split_rechner(
         data={
             "preis_grund_pro_m2": preis_grund,
             "preis_verbrauch_pro_einheit": preis_verbrauch,
-            "auch_uebernommen_fuer": [db.get(Liegenschaft, p.liegenschaft_id).name for p in andere],
+            "auch_uebernommen_fuer": [
+                lieg.name
+                for p in andere
+                if (lieg := db.get(Liegenschaft, p.liegenschaft_id)) is not None
+            ],
         },
     )
 
@@ -812,7 +820,7 @@ def set_uebersteuerung(
     return ApiResponse(ok=True, data={"feld": body.feld, "wert": body.wert})
 
 
-def _schluessel_mieter_out(e) -> SchluesselMieterOut:
+def _schluessel_mieter_out(e: SchluesselMieterErgebnis) -> SchluesselMieterOut:
     return SchluesselMieterOut(
         mieter_id=e.mieter_id,
         anzeigename=e.anzeigename,
@@ -823,16 +831,16 @@ def _schluessel_mieter_out(e) -> SchluesselMieterOut:
         miettage=e.miettage,
         periode_tage=e.periode_tage,
         zeilen=[
-            {
-                "schluessel": z.schluessel,
-                "kostenart": z.kostenart,
-                "grundlage": z.grundlage,
-                "betrag": round(z.betrag, 2),
-                "kostenart_id": z.kostenart_id,
-                "manuell_angepasst": z.manuell_angepasst,
-                "zaehler_typ": z.zaehler_typ,
-                "einheiten": z.einheiten,
-            }
+            SchluesselZeileOut(
+                schluessel=z.schluessel,
+                kostenart=z.kostenart,
+                grundlage=z.grundlage,
+                betrag=round(z.betrag, 2),
+                kostenart_id=z.kostenart_id,
+                manuell_angepasst=z.manuell_angepasst,
+                zaehler_typ=z.zaehler_typ,
+                einheiten=z.einheiten,
+            )
             for z in e.zeilen
         ],
         fehlende_daten=e.fehlende_daten,
@@ -872,7 +880,7 @@ def _speichere_verbrauch_override_transient(
                 )
             )
     elif ov.mieter_id is not None:
-        vorhanden = (
+        vorhanden_mieter = (
             db.query(MieterVerbrauch)
             .filter(
                 MieterVerbrauch.abrechnungsperiode_id == periode_id,
@@ -881,8 +889,8 @@ def _speichere_verbrauch_override_transient(
             )
             .first()
         )
-        if vorhanden:
-            vorhanden.wert = ov.wert
+        if vorhanden_mieter:
+            vorhanden_mieter.wert = ov.wert
         else:
             db.add(
                 MieterVerbrauch(

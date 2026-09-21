@@ -197,8 +197,8 @@ def berechne_schluessel_periode(db: Session, periode_id: int) -> list:
             continue
         for typ in (TYP_WAERME_KWH, TYP_WARMWASSER_M3, TYP_KALTWASSER_M3):
             raw = wohnungs_verbrauch[w.id][typ]
-            ov = verbrauch_overrides.get((w.id, typ), {})
-            verteilt_je_wohnung_typ[(w.id, typ)] = _verbrauch_je_segment(w_segs, raw, ov)
+            overrides_fuer_typ = verbrauch_overrides.get((w.id, typ), {})
+            verteilt_je_wohnung_typ[(w.id, typ)] = _verbrauch_je_segment(w_segs, raw, overrides_fuer_typ)
 
     # DirektUebersteuerung — Ausprobieren-Modus-Korrekturen dieser Periode
     flaeche_override: dict[int, float] = {}
@@ -267,7 +267,14 @@ def berechne_schluessel_periode(db: Session, periode_id: int) -> list:
         effektive_m2 = flaeche_override.get(w.id, w.flaeche_m2)
         effektive_personen = personen_override.get(m.id, m.anzahl_personen)
 
-        def _zeile(basis, preis, schluessel_suffix, label_suffix, kostenart_name, kostenart_id_):
+        def _zeile(
+            basis: str,
+            preis: "float | None",
+            schluessel_suffix: str,
+            label_suffix: str,
+            kostenart_name: str,
+            kostenart_id_: int,
+        ) -> "SchluesselZeile | None":
             zaehler_typ_out: str | None = None
             einheiten_out: float | None = None
             if preis is None:
@@ -358,7 +365,9 @@ def berechne_schluessel_periode(db: Session, periode_id: int) -> list:
     return ergebnisse
 
 
-def berechne_schluessel_mieter(db: Session, periode_id: int, mieter_id: int):
+def berechne_schluessel_mieter(
+    db: Session, periode_id: int, mieter_id: int
+) -> "SchluesselMieterErgebnis | None":
     for erg in berechne_schluessel_periode(db, periode_id):
         if erg.mieter_id == mieter_id:
             return erg
