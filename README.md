@@ -101,7 +101,20 @@ Voraussetzungen: Python 3.12, Node.js (aktuelle LTS-Version), npm.
 
 ### Screenshots
 
-*TODO — folgen vor dem öffentlichen Release.*
+*Alle Screenshots zeigen einen frei erfundenen Demo-Datensatz (Musterstraße 12) — keine echten
+Vermieter- oder Mieterdaten.*
+
+| Stammdaten | Wohnungen & Mieter |
+|---|---|
+| ![Stammdaten-Übersicht](docs/screenshots/01_stammdaten.png) | ![Wohnungen und Mieter](docs/screenshots/02_wohnungen_mieter.png) |
+
+| Kostenarten | Zählerstände |
+|---|---|
+| ![Kostenarten-Konfiguration](docs/screenshots/03_kostenarten.png) | ![Zählerstände-Übersicht](docs/screenshots/04_zaehlerstaende.png) |
+
+| Abrechnung | Dark Mode |
+|---|---|
+| ![Abrechnungsergebnis je Mieter](docs/screenshots/05_abrechnung.png) | ![Dark Mode](docs/screenshots/06_dark_mode.png) |
 
 ### Haftungsausschluss
 
@@ -236,7 +249,20 @@ Prerequisites: Python 3.12, a current Node.js LTS release, npm.
 
 ### Screenshots
 
-*TODO — to be added before the public release.*
+*All screenshots show a fictional demo dataset (Musterstraße 12) — no real landlord or tenant
+data.*
+
+| Property Overview | Units & Tenants |
+|---|---|
+| ![Property overview](docs/screenshots/01_stammdaten.png) | ![Units and tenants](docs/screenshots/02_wohnungen_mieter.png) |
+
+| Cost Types | Meter Readings |
+|---|---|
+| ![Cost type configuration](docs/screenshots/03_kostenarten.png) | ![Meter readings overview](docs/screenshots/04_zaehlerstaende.png) |
+
+| Billing Result | Dark Mode |
+|---|---|
+| ![Billing result per tenant](docs/screenshots/05_abrechnung.png) | ![Dark mode](docs/screenshots/06_dark_mode.png) |
 
 ### Disclaimer
 

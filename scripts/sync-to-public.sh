@@ -64,6 +64,7 @@ RSYNC_FILTERS=(
   --include="/frontend/postcss.config.js"
   --include="/frontend/index.html"
   --include="/scripts/***"
+  --include="/docs/***"
   --include="/README.md"
   --include="/LICENSE"
   --include="/FEATURES_ROADMAP.md"
