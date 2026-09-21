@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import logo from "../../assets/logo.svg";
 
 export type StageId = 1 | 2 | 3 | 4 | 5;
 
@@ -21,8 +22,11 @@ const STAGE_CONFIG: Record<StageId, { label: string; active: string; hover: stri
 export function TopBar({ stage, onStageChange, liegenschaftName, suche }: TopBarProps) {
   return (
     <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4 shrink-0">
-      <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm tracking-tight select-none shrink-0">
-        NK-Tool
+      <span className="flex items-center gap-1.5 shrink-0 select-none">
+        <img src={logo} alt="" className="h-5 w-5 rounded" />
+        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm tracking-tight">
+          NK-Tool
+        </span>
       </span>
       {liegenschaftName && (
         <>
