@@ -62,7 +62,7 @@ als PDF — lokal ab. Alle Daten bleiben auf dem eigenen Rechner.
 - Aufgaben/To-dos je Abrechnungslauf
 
 > Hinweis: Der Funktionsumfang wurde direkt aus dem Quellcode und der internen
-> Projektdokumentation abgeleitet. Screenshots folgen (siehe unten).
+> Projektdokumentation abgeleitet. Screenshots siehe unten.
 
 ### Tech-Stack
 
@@ -210,7 +210,7 @@ machine.
 - A simple to-do list per billing run
 
 > Note: this feature list was derived directly from the source code and
-> internal project documentation. Screenshots are still pending (see below).
+> internal project documentation. Screenshots below.
 
 ### Tech stack
 
