@@ -116,6 +116,8 @@ Vermieter- oder Mieterdaten.*
 |---|---|
 | ![Abrechnungsergebnis je Mieter](docs/screenshots/05_abrechnung.png) | ![Dark Mode](docs/screenshots/06_dark_mode.png) |
 
+**Ausführliche Klick-für-Klick-Anleitung: [docs/TUTORIAL.md](docs/TUTORIAL.md).**
+
 ### Haftungsausschluss
 
 **Idee, Konzept & Architektur: [LordAbsalypson](https://github.com/LordAbsalypson). Code geschrieben
@@ -263,6 +265,9 @@ data.*
 | Billing Result | Dark Mode |
 |---|---|
 | ![Billing result per tenant](docs/screenshots/05_abrechnung.png) | ![Dark mode](docs/screenshots/06_dark_mode.png) |
+
+**Detailed click-by-click walkthrough: [docs/TUTORIAL.md](docs/TUTORIAL.md)** (German UI,
+screenshots are self-explanatory).
 
 ### Disclaimer
 
