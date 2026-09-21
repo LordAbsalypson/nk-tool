@@ -17,7 +17,7 @@ import type {
   VerbundKosten,
   VerbundVorschau,
   Abrechnungsperiode,
-  Kostenart,
+  DirektKostenart,
 } from "../../types";
 import { Spinner } from "./Spinner";
 import { Modal, ConfirmModal } from "./Modal";
@@ -102,17 +102,22 @@ function VorschauModal({
       enabled: open && step === "periode",
     })),
   });
-  const kostenartenResults = useQueries({
-    queries: liegenschaften.map((l) => ({
-      queryKey: ["kostenarten", l.id],
-      queryFn: () => api.get<Kostenart[]>(`/liegenschaften/${l.id}/kostenarten`),
-      enabled: open && step === "periode",
-    })),
+  // Global (nicht pro Liegenschaft) — direkt-kostenarten ist liegenschaftsübergreifend,
+  // ein einzelner Query reicht; pro Haus wird unten nur noch gefiltert.
+  const { data: alleDirektKostenarten = [] } = useQuery({
+    queryKey: ["direkt-kostenarten"],
+    queryFn: () => api.get<DirektKostenart[]>("/direkt-kostenarten"),
+    enabled: open && step === "periode",
   });
   const periodeQueries = liegenschaften.map((l, i) => ({
     liegenschaft: l,
     perioden: periodenResults[i],
-    kostenarten: kostenartenResults[i],
+    // Nur einfache (nicht Grundkosten/Verbrauch-gesplittete) Kostenarten, die entweder
+    // global gelten oder explizit dieser Liegenschaft zugeordnet sind — der Verbund-
+    // Satz-Zuschlag lässt sich nur auf einen einzelnen preis_pro_einheit schreiben.
+    kostenarten: alleDirektKostenarten.filter(
+      (k) => !k.hat_grundkosten_split && (k.nur_liegenschaft_id === null || k.nur_liegenschaft_id === l.id)
+    ),
   }));
 
   const anwendenMutation = useMutation({
@@ -125,7 +130,8 @@ function VorschauModal({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["verbund", verbundId] });
-      qc.invalidateQueries({ queryKey: ["kostenpositionen"] });
+      qc.invalidateQueries({ queryKey: ["direkt-kostenarten-werte"] });
+      qc.invalidateQueries({ queryKey: ["schluessel-abrechnung"] });
       onAngewendet();
       onClose();
     },
@@ -210,8 +216,9 @@ function VorschauModal({
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600 mb-3">
-            Wähle für jede Liegenschaft die Abrechnungsperiode und Kostenart, in die der
-            berechnete Betrag eingetragen werden soll.
+            Wähle für jede Liegenschaft die Abrechnungsperiode und Kostenart. Der berechnete
+            Betrag wird als €/Einheit-Zuschlag auf diese Kostenart-Kachel addiert und fließt
+            damit direkt in die Abrechnung ein.
           </p>
           {periodeQueries.map(({ liegenschaft: l, perioden, kostenarten }) => {
             const aufteilungItem = vorschau?.aufteilung[String(l.id)];
@@ -224,7 +231,7 @@ function VorschauModal({
                     <span className="text-sm font-bold text-blue-700">{fmt(aufteilungItem.betrag)}</span>
                   )}
                 </div>
-                {perioden.isLoading || kostenarten.isLoading ? (
+                {perioden.isLoading ? (
                   <Spinner size="sm" />
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -261,12 +268,18 @@ function VorschauModal({
                         }
                       >
                         <option value="">— wählen —</option>
-                        {(kostenarten.data ?? [])
+                        {kostenarten
                           .filter((k) => k.aktiv)
                           .map((k) => (
                             <option key={k.id} value={k.id}>{k.name}</option>
                           ))}
                       </select>
+                      {kostenarten.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Keine passende Kostenart — erst unter „2 · Kostenarten" eine einfache
+                          (nicht gesplittete) Kachel anlegen.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -283,7 +296,7 @@ function VorschauModal({
               {anwendenMutation.isPending ? (
                 <span className="flex items-center gap-2"><Spinner size="sm" /> Wird eingetragen…</span>
               ) : (
-                <span className="flex items-center gap-1"><CheckIcon className="w-4 h-4" /> Kostenpositionen erzeugen</span>
+                <span className="flex items-center gap-1"><CheckIcon className="w-4 h-4" /> Sätze anwenden</span>
               )}
             </button>
             <button className="btn btn-secondary flex items-center gap-1" onClick={() => setStep("vorschau")}>
@@ -744,8 +757,9 @@ export function VerbundPanel({ open, onClose, liegenschaften }: Props) {
 
               {/* Hinweis */}
               <div className="text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-3">
-                Angewendete Positionen erzeugen Kostenpositionen in den jeweiligen Liegenschaften.
-                Sie erscheinen dort in Stage 2 → Kosten-Tab mit dem Präfix „[Verbund]".
+                Angewendete Positionen erhöhen den €/Einheit-Satz der gewählten Kostenart-Kachel
+                in „2 · Kostenarten" der jeweiligen Liegenschaft — sichtbar dort, nicht als
+                separate Zeile. Rückgängig machen nimmt genau diesen Zuschlag wieder zurück.
               </div>
             </>
           )}
@@ -794,7 +808,7 @@ export function VerbundPanel({ open, onClose, liegenschaften }: Props) {
       <ConfirmModal
         open={!!revertTarget}
         title="Anwendung rückgängig machen"
-        message={`Die Kostenpositionen für „${revertTarget?.bezeichnung}" werden aus den Liegenschaften gelöscht.`}
+        message={`Der €/Einheit-Zuschlag für „${revertTarget?.bezeichnung}" wird aus den Kostenarten-Sätzen der Liegenschaften wieder herausgerechnet.`}
         confirmLabel="Rückgängig machen"
         danger={false}
         onConfirm={() => revertTarget && revertMutation.mutate(revertTarget.id)}
@@ -803,8 +817,8 @@ export function VerbundPanel({ open, onClose, liegenschaften }: Props) {
 
       <ConfirmModal
         open={!!deleteTarget}
-        title="Kostenposition löschen"
-        message={`„${deleteTarget?.bezeichnung}" (${deleteTarget ? fmt(deleteTarget.betrag_gesamt) : ""}) löschen?${deleteTarget?.angewendet ? " Die erzeugten Kostenpositionen in den Liegenschaften werden ebenfalls gelöscht." : ""}`}
+        title="Verbund-Kosten löschen"
+        message={`„${deleteTarget?.bezeichnung}" (${deleteTarget ? fmt(deleteTarget.betrag_gesamt) : ""}) löschen?${deleteTarget?.angewendet ? " Die bereits addierten €/Einheit-Zuschläge in den Liegenschaften werden dabei zurückgenommen." : ""}`}
         confirmLabel="Löschen"
         onConfirm={() => deleteTarget && deleteKostenMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}

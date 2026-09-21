@@ -9,6 +9,14 @@ Endpunkte:
   PUT/DELETE      /verbund/{vid}/kosten/{kid}
   POST            /verbund/{vid}/kosten/{kid}/vorschau
   POST/DELETE     /verbund/{vid}/kosten/{kid}/anwenden
+
+"Anwenden" schreibt den je Liegenschaft berechneten Anteil NICHT mehr als
+Kostenposition (altes, rechnungsbasiertes Modell, das die aktive
+Direkt-Preise-Engine — schluessel_engine.py — nirgends liest), sondern als
+Zuschlag auf DirektKostenartWert.preis_pro_einheit der gewählten
+DirektKostenart für die jeweilige Periode. Damit wirkt sich der Verbund-
+Anteil tatsächlich auf die Mieterabrechnung aus (siehe NEBENKOSTEN_STATUS.md
+für den Fund, der zu dieser Umstellung führte).
 """
 
 from typing import Any
@@ -20,7 +28,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import (
     LiegenschaftVerbund, VerbundMitglied, VerbundKosten,
-    Liegenschaft, Wohnung, Mieter, Kostenposition, Abrechnungsperiode,
+    Liegenschaft, Wohnung, Mieter, DirektKostenart, DirektKostenartWert, Abrechnungsperiode,
 )
 from schemas import (
     VerbundCreate, VerbundUpdate, VerbundOut,
@@ -28,6 +36,7 @@ from schemas import (
     VerbundKostenCreate, VerbundKostenUpdate, VerbundKostenOut,
     VerbundAnwendenBody, VerbundVorschauResult, VerbundAufteilungItem,
 )
+from schluessel_engine import gesamteinheiten_vorschlag
 
 router = APIRouter(tags=["Verbund"])
 
@@ -275,18 +284,39 @@ def update_kosten(vid: int, kid: int, body: VerbundKostenUpdate, db: Session = D
 @router.delete("/verbund/{vid}/kosten/{kid}")
 def delete_kosten(vid: int, kid: int, db: Session = Depends(get_db)) -> dict[str, Any]:
     k = _get_kosten_or_404(kid, vid, db)
-    # Falls angewendet: zuerst erzeugte KP löschen
+    # Falls angewendet: zuerst die Satz-Erhöhung zurücknehmen
     if k.angewendet and k.anwendung_json:
-        anwendung = json.loads(k.anwendung_json)
-        for lid_str, info in anwendung.items():
-            kp_id = info.get("kostenposition_id")
-            if kp_id:
-                kp = db.get(Kostenposition, kp_id)
-                if kp:
-                    db.delete(kp)
+        _mache_anwendung_rueckgaengig(k.anwendung_json, db)
     db.delete(k)
     db.commit()
     return {"ok": True, "data": None}
+
+
+def _mache_anwendung_rueckgaengig(anwendung_json: str, db: Session) -> None:
+    """Nimmt für jede Liegenschaft den zuvor addierten Satz-Zuschlag wieder zurück.
+
+    Ignoriert Einträge im alten, vor dieser Umstellung erzeugten Format (Kostenposition
+    statt DirektKostenartWert) — die zugehörige Kostenposition existiert ggf. noch in der
+    DB, wird aber nirgends mehr gelesen und muss hier nicht mehr aufgeräumt werden."""
+    anwendung = json.loads(anwendung_json)
+    for info in anwendung.values():
+        wert_id = info.get("direkt_kostenart_wert_id")
+        if wert_id is None:
+            continue
+        wert = db.get(DirektKostenartWert, wert_id)
+        if wert is None:
+            continue
+        rate_delta = info.get("rate_delta", 0.0)
+        neuer_satz = (wert.preis_pro_einheit or 0.0) - rate_delta
+        if abs(neuer_satz) < 1e-9:
+            # Zeile ist wieder auf 0 — nur löschen, wenn sie sonst keine
+            # Split-Sätze trägt (sonst würde eine Grundkosten-Zeile mit
+            # entfernt, die nichts mit dieser Verbund-Anwendung zu tun hat).
+            if wert.preis_grund_pro_m2 is None and wert.preis_verbrauch_pro_einheit is None:
+                db.delete(wert)
+                continue
+            neuer_satz = 0.0
+        wert.preis_pro_einheit = neuer_satz
 
 
 # ── Vorschau & Anwenden ──────────────────────────────────────────────────────
@@ -346,22 +376,53 @@ def anwenden(vid: int, kid: int, body: VerbundAnwendenBody, db: Session = Depend
         if periode.status == "abgeschlossen":
             raise HTTPException(400, f"Periode {periode.bezeichnung} ist abgeschlossen")
 
-        # Kostenposition erzeugen
-        kp = Kostenposition(
-            kostenart_id=cfg.kostenart_id,
-            abrechnungsperiode_id=cfg.periode_id,
-            betrag_brutto=betrag,
-            beschreibung=f"[Verbund] {k.bezeichnung}",
-            datum=k.datum,
+        kostenart = db.get(DirektKostenart, cfg.kostenart_id)
+        if not kostenart:
+            raise HTTPException(400, f"Kostenart {cfg.kostenart_id} nicht gefunden")
+        if kostenart.hat_grundkosten_split:
+            raise HTTPException(
+                400,
+                f"„{kostenart.name}“ hat einen Grundkosten/Verbrauch-Split und kann nicht direkt "
+                "per Verbund befüllt werden — bitte eine einfache Kostenart wählen.",
+            )
+
+        # Verbund-Betrag in einen €/Einheit-Zuschlag umrechnen, passend zur
+        # Verteilungsbasis der gewählten Kostenart (m², Personen, Wohnung, ...).
+        einheiten = gesamteinheiten_vorschlag(db, cfg.periode_id)
+        gesamteinheiten = einheiten.get(kostenart.verteilungsbasis, 0.0)
+        if not gesamteinheiten:
+            raise HTTPException(
+                400,
+                f"Keine Basis-Einheiten ({kostenart.verteilungsbasis}) für Periode "
+                f"{periode.bezeichnung} — Kostenart kann hier nicht befüllt werden.",
+            )
+        rate_delta = betrag / gesamteinheiten
+
+        wert = (
+            db.query(DirektKostenartWert)
+            .filter(
+                DirektKostenartWert.abrechnungsperiode_id == cfg.periode_id,
+                DirektKostenartWert.kostenart_id == cfg.kostenart_id,
+            )
+            .first()
         )
-        db.add(kp)
-        db.flush()  # ID vergeben ohne commit
+        if wert is None:
+            wert = DirektKostenartWert(
+                abrechnungsperiode_id=cfg.periode_id,
+                kostenart_id=cfg.kostenart_id,
+                preis_pro_einheit=rate_delta,
+            )
+            db.add(wert)
+        else:
+            wert.preis_pro_einheit = (wert.preis_pro_einheit or 0.0) + rate_delta
+        db.flush()  # ID verfügbar machen für anwendung_json
 
         anwendung[lid_str] = {
             "periode_id": cfg.periode_id,
             "kostenart_id": cfg.kostenart_id,
             "betrag": betrag,
-            "kostenposition_id": kp.id,
+            "rate_delta": rate_delta,
+            "direkt_kostenart_wert_id": wert.id,
         }
 
     k.angewendet = True
@@ -379,13 +440,7 @@ def anwenden_rueckgaengig(vid: int, kid: int, db: Session = Depends(get_db)) -> 
         raise HTTPException(400, "Nicht angewendet")
 
     if k.anwendung_json:
-        anwendung = json.loads(k.anwendung_json)
-        for lid_str, info in anwendung.items():
-            kp_id = info.get("kostenposition_id")
-            if kp_id:
-                kp = db.get(Kostenposition, kp_id)
-                if kp:
-                    db.delete(kp)
+        _mache_anwendung_rueckgaengig(k.anwendung_json, db)
 
     k.angewendet = False
     k.anwendung_json = None
