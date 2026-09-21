@@ -335,6 +335,74 @@ Liegenschaftsauswahl zurückzuspringen).
 - **Offline-Fall** (kein WLAN am Zähler): außerhalb des ursprünglichen Scopes — für jetzt
   explizit nicht geplant (würde eine PWA mit Offline-Sync brauchen, deutlich mehr Aufwand).
 
+#### 4.3.1 Technische Vertiefung (2026-09-21, weiterhin nur Design — nicht implementiert)
+
+**Routen-/Komponentenstruktur** — neues React-Router-Segment, komplett getrennt vom Haupt-
+Layout (`App.tsx` rendert aktuell immer `TopBar`/`Sidebar`/`Footer` um den Inhalt; die mobile
+Route braucht ein eigenes, minimales Root ohne diese Shell):
+- `frontend/src/pages/Mobile/index.tsx` — eigener Einstiegspunkt, per `<Route path="/mobil/*">`
+  in `App.tsx`s Router VOR der Haupt-Shell abgezweigt (nicht als Kind-Route der App-Shell,
+  sonst lädt TopBar/Sidebar mit).
+- `Mobile/LiegenschaftAuswahl.tsx` → `Mobile/WohnungAuswahl.tsx` → `Mobile/ZaehlerEingabe.tsx`,
+  jeweils große Touch-Targets (min. 44×44px, siehe Apple HIG/WCAG 2.5.5), State über
+  URL-Pfad-Segmente (`/mobil/l/:liegenschaftId/w/:wohnungId`) statt React-State — Zurück-Button
+  des Handy-Browsers funktioniert dadurch automatisch richtig (Nielsen: "Nutzerkontrolle").
+- Wiederverwendet bestehende Endpunkte (`GET /liegenschaften`, `GET /liegenschaften/{id}/wohnungen`,
+  `GET /wohnungen/{id}/zaehler`) — nur der Speichern-Schritt braucht einen neuen, bewusst
+  minimalen Endpunkt statt des vollen `POST /zaehler/{id}/staende` (der z. B. `art` als freien
+  Wert akzeptiert) — siehe Scoped-Token-Punkt unten.
+
+**Scoped-Token-Format** — Erweiterung von `backend/auth.py` (`create_token`/`verify_token`,
+siehe Docstring dort zur aktuellen Payload = nur `expires_at`):
+- Payload wird um ein `scope`-Feld erweitert: `f"{expires_at}:{scope}"` statt nur `expires_at`
+  (Format-Änderung, `verify_token` muss beide Varianten für eine Übergangszeit lesen können,
+  oder — sauberer, da noch kein Nutzer echte Tokens im Umlauf hat — einmalig brechend ändern
+  und in `CHANGELOG.md` vermerken).
+- Neuer Endpunkt `POST /auth/mobile-token` (nur mit gültiger Voll-Session aufrufbar, d. h. der
+  Vermieter erzeugt den Ablese-Token einmalig selbst z. B. beim Anzeigen des QR-Codes) gibt ein
+  Token mit `scope="meter-entry"` und einer **langen** Gültigkeit zurück (Wochen/Monate statt
+  der 12h-Session — ein Zettel am Zähler soll nicht wöchentlich neu ausgedruckt werden müssen).
+- `require_auth()` in `routers/auth.py` bekommt einen optionalen `required_scope`-Parameter
+  (FastAPI `Depends(require_auth_scope("meter-entry"))` als eigene, engere Dependency) — auf den
+  neuen minimalen Zählerstand-Endpunkt angewendet, NICHT auf die übrigen Datenrouter. Ein
+  `meter-entry`-Token darf also ausschließlich diesen einen Endpunkt aufrufen, sonst 403.
+- Konsequenz für `AppAuth`-Modell: `token_secret` bleibt gemeinsam (ein Secret signiert beide
+  Token-Arten) — der `scope` im Payload, nicht ein zweites Secret, entscheidet über die
+  Berechtigung. Einfacher zu implementieren, ausreichend sicher (Secret verlässt nie den Server).
+
+**QR-Code-Erzeugung** — neuer Endpunkt `GET /liegenschaften/{id}/mobil-qr` (geschützt durch die
+normale Voll-Session, nicht den Scoped-Token):
+- Serverseitig mit dem Python-Paket `qrcode` (reines Python + Pillow, Pillow ist bereits
+  Abhängigkeit für die Desktop-Icon-Generierung) — kodiert
+  `http://<lokale-IP>:<Port>/mobil/l/{id}?token=<meter-entry-Token>`.
+  Der Scoped-Token direkt in der QR-URL vermeidet einen Login-Schritt am Zähler mit kalten
+  Fingern (siehe "Auth-Implikation" oben) — der Token wird beim ersten Laden aus der URL in
+  `localStorage` übernommen und aus der URL-Bar entfernt (`history.replaceState`), damit er
+  nicht in Chatverläufen/Screenshots landet, falls der QR-Code-Link geteilt wird.
+- Lokale IP-Ermittlung: `socket.gethostbyname(socket.gethostname())` — bekanntes Problem bei
+  Macs mit mehreren Netzwerk-Interfaces (liefert nicht zuverlässig die WLAN-IP) — Fallback/
+  manuelle Eingabe der IP in den Einstellungen vorsehen, falls automatisch erkannt falsch.
+- Response: PNG-Bild direkt (`Response(content=png_bytes, media_type="image/png")`), im Frontend
+  einfach als `<img src="/api/v1/liegenschaften/{id}/mobil-qr">` eingebunden — kein Base64-Umweg
+  nötig, Browser cached es normal.
+
+**Mobile-Layout-Anforderungen**:
+- Tailwind: nur `sm:`-Breakpoint-frei entwickeln (Basis-Klassen = Mobile-First), da die Route
+  ausschließlich auf Handys geöffnet wird — kein Bedarf für Desktop-Anpassung dieser Ansicht.
+- Ein Eingabefeld pro Bildschirm (Zählerstand), großer Zahlen-Tastatur-Trigger
+  (`inputMode="decimal"`), Datum automatisch auf heute vorausgefüllt (nicht editierbar — reduziert
+  Fehlerquellen, entspricht der Nutzer-Vision oben).
+- Bestätigungs-Screen nach dem Speichern ("✓ Gespeichert — 1234,5 kWh") mit einem einzigen
+  großen Button "Nächster Zähler" statt automatischem Zurückspringen — verhindert versehentliches
+  Doppel-Speichern durch zu schnelles Weiterklicken.
+
+**Weiterhin offen/nicht in dieser Vertiefung behandelt**: Offline-PWA-Fall (siehe oben,
+weiterhin bewusst außerhalb des Scopes), Token-Widerruf-UI (aktuell nur implizit durch
+Passwort-Änderung, die `token_secret` rotiert und damit alle Tokens inkl. `meter-entry`
+invalidiert — für einen dedizierten "Ablese-Token widerrufen"-Button müsste `AppAuth` ein
+zweites, unabhängiges Secret für `meter-entry`-Tokens bekommen; hier bewusst nicht vorgezogen,
+da Erstimplementierung sonst unnötig komplex würde).
+
 ### 4.4 Rechtssichere/nachvollziehbare Berechnung (Antwort auf LEGAL_NOTES.md Punkt 2)
 
 **Ziel**: Das im Rechts-Risiko-Dokument benannte Haftungsrisiko ("fehlerhafte Berechnung
