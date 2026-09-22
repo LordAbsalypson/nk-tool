@@ -2,14 +2,21 @@ name: Build Desktop App
 
 # Baut die Desktop-App für macOS und Windows über PyInstaller (siehe desktop/README.md).
 # Windows wird ausschließlich hier gebaut — kein lokaler Windows-Rechner im Projekt vorhanden.
-# Manuell auslösbar (workflow_dispatch) oder bei Push auf main, wenn sich desktop/, backend/
-# oder frontend/ geändert haben. Lädt die gebauten Artefakte hoch, veröffentlicht aber (noch)
-# keinen GitHub Release — das ist ein späterer Schritt (siehe FEATURES_ROADMAP.md).
-
+# Läuft bei Push auf main (wenn sich desktop/, backend/ oder frontend/ geändert haben) oder bei
+# Push eines "v*"-Tags. Bei einem Tag-Push (oder manuell über workflow_dispatch mit release_tag)
+# werden die gebauten Apps zusätzlich als .zip an den passenden GitHub Release angehängt.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: >-
+          Bestehender Release-Tag, dem die Build-Artefakte nachträglich angehängt werden sollen
+          (z. B. v1.0.0). Leer lassen für einen normalen Build ohne Release-Upload.
+        required: false
+        type: string
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       - "desktop/**"
       - "backend/**"
@@ -106,3 +113,46 @@ jobs:
           name: NK-Tool-Windows
           path: desktop/dist/NK-Tool
           if-no-files-found: error
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    # Nur bei Tag-Push (refs/tags/v...) oder manuellem Trigger mit gesetztem release_tag-Input.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release_tag != ''
+    permissions:
+      contents: write
+    steps:
+      - name: Artefakte herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          pattern: NK-Tool-*
+          path: dist
+
+      - name: Zieltag bestimmen
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Downloads packen
+        # download-artifact legt den Inhalt der hochgeladenen Verzeichnisse flach in
+        # dist/NK-Tool-macOS/ bzw. dist/NK-Tool-Windows/ ab (kein umschließender Ordner mit dem
+        # ursprünglichen Verzeichnisnamen) — deshalb hier explizit auf die richtigen Namen
+        # umbenennen, bevor gezippt wird (macOS braucht die ".app"-Endung für den Bundle-Namen).
+        run: |
+          cd dist
+          mv NK-Tool-macOS NK-Tool.app
+          zip -r -y NK-Tool-macOS.zip NK-Tool.app
+          mv NK-Tool-Windows NK-Tool
+          zip -r -y NK-Tool-Windows.zip NK-Tool
+
+      - name: Assets an Release anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            dist/NK-Tool-macOS.zip dist/NK-Tool-Windows.zip \
+            --repo "${{ github.repository }}" --clobber

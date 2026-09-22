@@ -5,7 +5,7 @@ Danke für dein Interesse an nk-tool! Kurzer Leitfaden für Beiträge.
 ## Setup
 
 Vollständige Setup-Anleitung (Voraussetzungen, Backend/Frontend-Start) steht in der
-[README](README.md#schnellstart).
+[README](README.md#selbst-hosten--entwicklung).
 
 ## Bevor du einen Pull Request öffnest
 

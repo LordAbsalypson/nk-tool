@@ -79,7 +79,22 @@ als PDF — lokal ab. Alle Daten bleiben auf dem eigenen Rechner.
 Keine Alembic-Migrationen — Schemaänderungen laufen über idempotente
 `ALTER TABLE`-Blöcke beim Start (siehe `backend/main.py`).
 
-### Schnellstart
+### Installation
+
+**Empfohlen für die meisten Nutzer: die fertige Desktop-App herunterladen** — kein Terminal,
+kein Python/Node.js nötig.
+
+| | |
+|---|---|
+| 🍎 **macOS** | [Neueste Version herunterladen](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.zip) — entpacken, `NK-Tool.app` nach `/Programme` ziehen. Beim ersten Start **Rechtsklick → Öffnen** (statt Doppelklick), da die App nicht signiert/notarisiert ist (Solo-Projekt, siehe [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — einmalig nötig. |
+| 🪟 **Windows** | [Neueste Version herunterladen](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-Windows.zip) — entpacken, `NK-Tool.exe` starten. Bei der SmartScreen-Warnung ("Unbekannter Herausgeber") auf **Weitere Informationen → Trotzdem ausführen** klicken — ebenfalls einmalig, aus demselben Grund. |
+
+Alle Versionen: [github.com/LordAbsalypson/nk-tool/releases](https://github.com/LordAbsalypson/nk-tool/releases).
+
+Alternativ läuft NK-Tool auch direkt im Browser, siehe **"Selbst hosten / Entwicklung"** unten —
+nur relevant für Entwickler oder wer den Quellcode/Server selbst betreiben möchte.
+
+### Selbst hosten / Entwicklung
 
 ```bash
 # Backend (Port 8000)
@@ -135,10 +150,12 @@ Haftung übernommen.
 
 ### Lizenz
 
-**[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** — kostenlos für jede Nutzung,
-auch gewerblich. Wer eine modifizierte Version als Netzwerkdienst (z. B. gehostetes Angebot für
-Dritte) betreibt, muss den vollständigen, angepassten Quellcode dieser Version öffentlich
-zugänglich machen (§13 AGPL, "Network Use"). Details siehe [`LICENSE`](LICENSE) und
+**MIT-Lizenz mit einer Zusatzklausel** ([Details: `LICENSE`](LICENSE)) — kostenlos für praktisch
+jede Nutzung, inkl. Selbst-Hosten, Modifizieren und der Abrechnung eigener Immobilien (auch über
+eine eigene Firma, unabhängig von der Anzahl der Einheiten). **Ausnahme**: Hausverwaltungen/
+Property-Management-Dienstleister, die NK-Abrechnungen gegen Entgelt für fremde Eigentümer
+erstellen, benötigen eine gesonderte Lizenzvereinbarung — bitte per GitHub Issue oder E-Mail
+Kontakt aufnehmen. Details und Begründung siehe [`LICENSE`](LICENSE) und
 [`LEGAL_NOTES.md`](LEGAL_NOTES.md).
 
 ### Mitwirken
@@ -229,7 +246,22 @@ machine.
 No Alembic migrations — schema changes run as idempotent `ALTER TABLE`
 statements on startup (see `backend/main.py`).
 
-### Quickstart
+### Installation
+
+**Recommended for most users: download the ready-made desktop app** — no terminal, no
+Python/Node.js required.
+
+| | |
+|---|---|
+| 🍎 **macOS** | [Download latest version](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.zip) — unzip, drag `NK-Tool.app` into `/Applications`. On first launch, **right-click → Open** (instead of double-clicking), since the app isn't code-signed/notarized (solo project, see [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — a one-time step. |
+| 🪟 **Windows** | [Download latest version](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-Windows.zip) — unzip, run `NK-Tool.exe`. On the SmartScreen warning ("Unknown publisher"), click **More info → Run anyway** — also a one-time step, same reason. |
+
+All releases: [github.com/LordAbsalypson/nk-tool/releases](https://github.com/LordAbsalypson/nk-tool/releases).
+
+Alternatively, NK-Tool also runs directly in the browser — see **"Self-hosting / Development"**
+below, relevant mainly for developers or anyone who wants to run the source/server themselves.
+
+### Self-hosting / Development
 
 ```bash
 # Backend (port 8000)
@@ -285,11 +317,12 @@ errors in calculation, presentation, or legal compliance.
 
 ### License
 
-**[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** — free for any use, including
-commercial. Anyone running a modified version as a network service (e.g. a hosted offering for
-third parties) must make the complete, modified source code of that version publicly available
-(AGPL §13, "Network Use"). See [`LICENSE`](LICENSE) and [`LEGAL_NOTES.md`](LEGAL_NOTES.md) for
-details.
+**MIT License with one additional restriction** ([details: `LICENSE`](LICENSE)) — free for
+virtually any use, including self-hosting, modifying, and billing your own properties (even
+through your own company, regardless of portfolio size). **Exception**: property management
+companies / Hausverwaltungen that provide NK-Abrechnung as a paid service to third-party property
+owners need a separate license agreement — please reach out via GitHub issue or email. See
+[`LICENSE`](LICENSE) and [`LEGAL_NOTES.md`](LEGAL_NOTES.md) for details and rationale.
 
 ### Contributing
 

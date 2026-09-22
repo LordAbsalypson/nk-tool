@@ -180,17 +180,39 @@ MIT/Apache-2.0 würden das nicht verhindern.
 **Trade-off:** AGPL schreckt manche kommerzielle Contributor/Integratoren ab (Copyleft-Pflicht) —
 für ein privates/gemeinnütziges Nischentool (Vermieter-Community) ist das i. d. R. unkritisch.
 
-**Einschätzung: AGPL-3.0 am besten geeignet.**
+**Einschätzung (Stand 2026-09-21): AGPL-3.0 am besten geeignet.** — **Überholt, siehe unten.**
 
-**Status: entschieden und umgesetzt (2026-09-21).** `LICENSE` enthält den vollständigen
-AGPL-3.0-Text der FSF, README (DE+EN) wurde entsprechend angepasst. Der vormalige Widerspruch
-zwischen `LICENSE` (PolyForm Noncommercial) und dieser Empfehlung ist damit aufgelöst.
+**Status: erneut geändert (2026-09-22).** Nach Rücksprache mit dem Maintainer stellte sich heraus,
+dass das eigentliche Anliegen nicht "kommerziell ja/nein" ist (ein privater Vermieter, der seine
+eigenen Immobilien selbst abrechnet — auch über eine eigene Firma, unabhängig von der Einheitenzahl
+— soll frei bleiben), sondern konkret: **Hausverwaltungen/Property-Management-Dienstleister, die
+NK-Abrechnungen gegen Entgelt für fremde Eigentümer erstellen**, sollen den Maintainer kontaktieren
+statt das Tool ohne Weiteres kommerziell einzusetzen. AGPL-3.0 (erlaubt jede kommerzielle Nutzung
+ohne Rückfrage) und PolyForm Noncommercial (verbietet *jede* kommerzielle Nutzung, auch den
+selbst abrechnenden Vermieter) treffen diese Abgrenzung beide nicht sauber — keine der drei
+OSI-Standardlizenzen aus der Tabelle oben bildet das ab.
+
+**Neuer Ansatz: MIT-Lizenz + eine kurze Zusatzklausel** (`LICENSE`), die genau diesen einen Fall
+ausschließt (entgeltliche NK-Abrechnung für fremde Eigentümer als Dienstleistung), alles andere —
+inkl. Selbst-Hosten, Modifizieren, Eigenverwaltung in beliebigem Umfang — bleibt frei. Kein
+Copyleft/Network-Use-Zwang mehr (war für das eigentliche Anliegen ohnehin nicht der Kernpunkt,
+siehe oben "SaaS ohne Attribution" — das Risiko besteht mit der Klausel weiterhin, ist aber
+zweitrangig gegenüber der Hausverwaltungs-Frage).
+
+**Wichtig:** Die Zusatzklausel ist selbst verfasst, **nicht anwaltlich geprüft**. Insbesondere die
+Durchsetzbarkeit einer solchen Nutzungsbeschränkung innerhalb einer sonst freizügigen Lizenz sollte
+bei Gelegenheit von einem Anwalt gegengelesen werden — kein Blocker für die aktuelle Verwendung,
+aber vor einer tatsächlichen rechtlichen Auseinandersetzung (z. B. Abmahnung einer Hausverwaltung)
+zu klären.
+
+`LICENSE` enthält den neuen MIT+Klausel-Text, README (DE+EN) wurde entsprechend angepasst.
 
 ---
 
 ## Zusammenfassung — Handlungsempfehlungen (priorisiert)
 
-1. **Lizenz**: AGPL-3.0 als LICENSE-Datei hinzufügen. ✅ Erledigt (2026-09-21).
+1. **Lizenz**: MIT + Hausverwaltungs-Klausel als LICENSE-Datei. ✅ Erledigt (2026-09-22, siehe
+   Abschnitt 6 — Verlauf: PolyForm Noncommercial → AGPL-3.0 (2026-09-21) → MIT+Klausel (2026-09-22)).
 2. **README-Disclaimer**: Haftungsausschluss + "kein Rechtsdienstleister" + "Betreiber ist
    DSGVO-Verantwortlicher" als eigener Abschnitt.
 3. **README-Formulierung**: Keine Konkurrenznennung ("ista"), keine Begriffe wie "rechtssicher"/
@@ -220,6 +242,9 @@ author and end user); the tool does not constitute a regulated legal service (RD
 marketing avoids terms like "legally guaranteed"; AI-assisted code authorship is not legally
 settled in Germany but is practically unproblematic given human curation and license decisions;
 the internal reference to "ista SE" must not appear in public materials (trademark/competition
-law). **Top recommendation: license under AGPL-3.0** (not MIT/Apache) to enforce source disclosure
-if someone hosts this as a SaaS product, combined with a clear liability/GDPR disclaimer in the
-public README before release.
+law). **License (updated 2026-09-22): MIT + a narrow additional restriction** — free for
+essentially all use (including self-managed rentals of any size), except paid NK-Abrechnung
+services provided by property management companies to third-party owners, which require a
+separate agreement with the author. (Superseded an earlier AGPL-3.0 recommendation, which did not
+match the author's actual intent — see section 6.) Combined with a clear liability/GDPR disclaimer
+in the public README.
