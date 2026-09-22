@@ -70,11 +70,19 @@ jobs:
         working-directory: desktop
         run: python -m PyInstaller --noconfirm nk-tool.spec
 
+      - name: App-Bundle packen
+        # WICHTIG: als tar.gz packen statt den rohen .app-Ordner hochzuladen — GitHub-Actions-
+        # Artifacts (upload-artifact/download-artifact) bewahren Unix-Exec-Rechte bei losen
+        # Dateien nicht zuverlässig (reproduzierter Bug: Contents/MacOS/NK-Tool kam beim
+        # Download ohne +x an, App ließ sich nicht mehr starten). tar bewahrt Rechte immer.
+        working-directory: desktop
+        run: tar -czf NK-Tool-macOS.tar.gz -C dist NK-Tool.app
+
       - name: Artefakt hochladen
         uses: actions/upload-artifact@v4
         with:
           name: NK-Tool-macOS
-          path: desktop/dist/NK-Tool.app
+          path: desktop/NK-Tool-macOS.tar.gz
           if-no-files-found: error
 
   build-windows:
@@ -107,11 +115,15 @@ jobs:
         working-directory: desktop
         run: python -m PyInstaller --noconfirm nk-tool-windows.spec
 
+      - name: App-Ordner packen
+        working-directory: desktop
+        run: Compress-Archive -Path dist/NK-Tool -DestinationPath NK-Tool-Windows.zip
+
       - name: Artefakt hochladen
         uses: actions/upload-artifact@v4
         with:
           name: NK-Tool-Windows
-          path: desktop/dist/NK-Tool
+          path: desktop/NK-Tool-Windows.zip
           if-no-files-found: error
 
   release:
@@ -122,11 +134,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Beide Build-Jobs laden bereits fertig gepackte Archive hoch (tar.gz/zip) — hier nur
+      # herunterladen und direkt an den Release anhängen, kein erneutes Packen nötig (das war
+      # zuvor die Ursache für verlorene Exec-Rechte im macOS-Bundle, siehe build-macos-Job).
       - name: Artefakte herunterladen
         uses: actions/download-artifact@v4
         with:
           pattern: NK-Tool-*
           path: dist
+          merge-multiple: true
 
       - name: Zieltag bestimmen
         id: tag
@@ -137,22 +153,11 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Downloads packen
-        # download-artifact legt den Inhalt der hochgeladenen Verzeichnisse flach in
-        # dist/NK-Tool-macOS/ bzw. dist/NK-Tool-Windows/ ab (kein umschließender Ordner mit dem
-        # ursprünglichen Verzeichnisnamen) — deshalb hier explizit auf die richtigen Namen
-        # umbenennen, bevor gezippt wird (macOS braucht die ".app"-Endung für den Bundle-Namen).
-        run: |
-          cd dist
-          mv NK-Tool-macOS NK-Tool.app
-          zip -r -y NK-Tool-macOS.zip NK-Tool.app
-          mv NK-Tool-Windows NK-Tool
-          zip -r -y NK-Tool-Windows.zip NK-Tool
-
       - name: Assets an Release anhängen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          ls -la dist/
           gh release upload "${{ steps.tag.outputs.tag }}" \
-            dist/NK-Tool-macOS.zip dist/NK-Tool-Windows.zip \
+            dist/NK-Tool-macOS.tar.gz dist/NK-Tool-Windows.zip \
             --repo "${{ github.repository }}" --clobber

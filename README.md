@@ -86,7 +86,7 @@ kein Python/Node.js nötig.
 
 | | |
 |---|---|
-| 🍎 **macOS** | [Neueste Version herunterladen](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.zip) — entpacken, `NK-Tool.app` nach `/Programme` ziehen. Beim ersten Start **Rechtsklick → Öffnen** (statt Doppelklick), da die App nicht signiert/notarisiert ist (Solo-Projekt, siehe [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — einmalig nötig. |
+| 🍎 **macOS** | [Neueste Version herunterladen](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.tar.gz) — entpacken, `NK-Tool.app` nach `/Programme` ziehen. Beim ersten Start **Rechtsklick → Öffnen** (statt Doppelklick), da die App nicht signiert/notarisiert ist (Solo-Projekt, siehe [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — einmalig nötig. |
 | 🪟 **Windows** | [Neueste Version herunterladen](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-Windows.zip) — entpacken, `NK-Tool.exe` starten. Bei der SmartScreen-Warnung ("Unbekannter Herausgeber") auf **Weitere Informationen → Trotzdem ausführen** klicken — ebenfalls einmalig, aus demselben Grund. |
 
 Alle Versionen: [github.com/LordAbsalypson/nk-tool/releases](https://github.com/LordAbsalypson/nk-tool/releases).
@@ -253,7 +253,7 @@ Python/Node.js required.
 
 | | |
 |---|---|
-| 🍎 **macOS** | [Download latest version](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.zip) — unzip, drag `NK-Tool.app` into `/Applications`. On first launch, **right-click → Open** (instead of double-clicking), since the app isn't code-signed/notarized (solo project, see [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — a one-time step. |
+| 🍎 **macOS** | [Download latest version](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-macOS.tar.gz) — unzip, drag `NK-Tool.app` into `/Applications`. On first launch, **right-click → Open** (instead of double-clicking), since the app isn't code-signed/notarized (solo project, see [`LEGAL_NOTES.md`](LEGAL_NOTES.md)) — a one-time step. |
 | 🪟 **Windows** | [Download latest version](https://github.com/LordAbsalypson/nk-tool/releases/latest/download/NK-Tool-Windows.zip) — unzip, run `NK-Tool.exe`. On the SmartScreen warning ("Unknown publisher"), click **More info → Run anyway** — also a one-time step, same reason. |
 
 All releases: [github.com/LordAbsalypson/nk-tool/releases](https://github.com/LordAbsalypson/nk-tool/releases).
