@@ -448,6 +448,8 @@ function MieterZeile({
           downloadUrl={pdfPreview.url}
           dateiname={pdfPreview.dateiname}
           onClose={() => setPdfPreview(null)}
+          onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
+          onError={onError}
         />
       )}
     </div>
@@ -461,6 +463,7 @@ interface Props {
 }
 
 export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
+  const { addToast } = useToast();
   const [kombiModus, setKombiModus] = useState(false);
   const [kombiAusgewaehlt, setKombiAusgewaehlt] = useState<Set<number>>(new Set());
   const [kombiName, setKombiName] = useState("");
@@ -667,6 +670,8 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
           downloadUrl={pdfPreview.url}
           dateiname={pdfPreview.dateiname}
           onClose={() => setPdfPreview(null)}
+          onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
+          onError={onError}
         />
       )}
     </div>

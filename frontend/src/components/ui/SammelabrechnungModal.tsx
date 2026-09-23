@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { PdfPreviewModal } from "./PdfPreviewModal";
+import { useToast } from "../../hooks/useToast";
 
 interface Props {
   open: boolean;
@@ -17,6 +18,7 @@ interface Props {
  *  Wohnung, Legende mit den €-Sätzen oben statt Wiederholung in jeder Zeile.
  *  Reine Zusatz-Funktion, ändert nichts an den einzelnen Mieter-Abrechnungen. */
 export function SammelabrechnungModal({ open, onClose, periodeId, liegenschaftName, onError }: Props) {
+  const { addToast } = useToast();
   const [zaehlerstaende, setZaehlerstaende] = useState(true);
   const [vorauszahlungen, setVorauszahlungen] = useState(true);
   const [saldo, setSaldo] = useState(true);
@@ -42,6 +44,8 @@ export function SammelabrechnungModal({ open, onClose, periodeId, liegenschaftNa
           setPdfPreview(null);
           onClose();
         }}
+        onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
+        onError={onError}
       />
     );
   }

@@ -195,6 +195,14 @@ def _dateiname(name: str) -> str:
     return sicher.replace(" ", "_") or "Mieter"
 
 
+def _hausnummer(adresse: str) -> str:
+    """Letztes Token der Adresse, in der Praxis die Hausnummer (z. B. "15" oder
+    "15A" bei "Jeversche Str. 15A") — für Dateinamen, die Wohnungen mehrerer
+    Häuser derselben Straße unterscheidbar machen sollen."""
+    teile = adresse.strip().split()
+    return teile[-1] if teile else ""
+
+
 @router.post("/perioden/{periode_id}/mieter/{mieter_id}/schluessel-abrechnung/pdf")
 def erzeuge_schluessel_pdf(
     periode_id: int,
@@ -241,7 +249,10 @@ def erzeuge_schluessel_pdf(
     )
 
     ordner_name = periode.bezeichnung.replace("/", "-")
-    dateiname = f"{_dateiname(erg.wohnung_bezeichnung)}_{_dateiname(erg.anzeigename)}.pdf"
+    dateiname = (
+        f"{_dateiname(_hausnummer(lieg.adresse))}_{_dateiname(erg.wohnung_bezeichnung)}"
+        f"_{_dateiname(erg.anzeigename)}.pdf"
+    )
     erzeuge_abrechnung_pdf(daten, PDF_DIR / ordner_name / dateiname)
 
     return ApiResponse(
@@ -332,7 +343,10 @@ def erzeuge_kombinierte_pdf(
 
     ordner_name = periode.bezeichnung.replace("/", "-")
     wohnungs_teil = "-".join(_dateiname(s.wohnung_bezeichnung) for s in segmente)
-    dateiname = f"{wohnungs_teil}_{_dateiname(anzeigename)}_kombiniert.pdf"
+    dateiname = (
+        f"{_dateiname(_hausnummer(lieg.adresse))}_{wohnungs_teil}"
+        f"_{_dateiname(anzeigename)}_kombiniert.pdf"
+    )
     erzeuge_abrechnung_pdf(daten, PDF_DIR / ordner_name / dateiname)
 
     return ApiResponse(
@@ -448,7 +462,10 @@ def erzeuge_personen_split_pdf(
                 f"Ihr Anteil wird im Summenblock unten ausgewiesen."
             ),
         )
-        dateiname = f"{_dateiname(erg.wohnung_bezeichnung)}_{_dateiname(gr.name)}_anteil.pdf"
+        dateiname = (
+            f"{_dateiname(_hausnummer(lieg.adresse))}_{_dateiname(erg.wohnung_bezeichnung)}"
+            f"_{_dateiname(gr.name)}_anteil.pdf"
+        )
         erzeuge_abrechnung_pdf(daten, PDF_DIR / ordner_name / dateiname)
         ergebnisse.append(
             {

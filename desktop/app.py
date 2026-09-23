@@ -54,6 +54,7 @@ main.py nicht vorgesehen).
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shutil
@@ -377,6 +378,31 @@ class DesktopApi:
         except OSError as exc:
             return {"ok": False, "error": str(exc)}
         return {"ok": True}
+
+    def save_pdf(self, suggested_name: str, base64_data: str) -> dict:
+        """Nativer "Speichern unter"-Dialog fuer eine erzeugte Abrechnungs-PDF
+        (Downloads-Ordner als Default-Ort). Ersetzt die bisherige iframe-Vorschau
+        in der Desktop-App: WKWebView (macOS) rendert eingebettete PDFs ueber eine
+        native Ebene, die den Rest der Seite ueberlagern und Klicks blockieren
+        kann (siehe PdfPreviewModal.tsx) - ausserdem funktioniert der <a download>-
+        Mechanismus fuer blob:-URLs dort ohnehin nicht zuverlaessig."""
+        window = webview.windows[0]
+        downloads = Path.home() / "Downloads"
+        start_dir = str(downloads) if downloads.exists() else str(Path.home())
+        result = window.create_file_dialog(
+            FileDialog.SAVE,
+            directory=start_dir,
+            save_filename=suggested_name,
+            file_types=("PDF Datei (*.pdf)",),
+        )
+        if not result:
+            return {"path": None}
+        target = Path(result if isinstance(result, str) else result[0])
+        try:
+            target.write_bytes(base64.b64decode(base64_data))
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "path": str(target)}
 
     def open_external(self, url: str) -> dict:
         if not (url.startswith("https://") or url.startswith("http://")):

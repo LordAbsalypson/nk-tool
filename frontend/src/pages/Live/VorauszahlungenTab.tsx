@@ -304,6 +304,15 @@ function GesamtbetragButton({
     onError: (e: Error) => onError(e.message),
   });
 
+  const fixedRows = mieter.vorauszahlungen.filter((v) =>
+    ziel === "soll" ? v.soll_override : v.ist_override
+  );
+  const fixedSum = Math.round(
+    fixedRows.reduce((s, v) => s + (ziel === "soll" ? v.betrag_soll : v.betrag_ist), 0) * 100
+  ) / 100;
+  const betragNum = parseFloat(betrag.replace(",", "."));
+  const wirdZurueckgesetzt = fixedRows.length > 0 && !isNaN(betragNum) && betragNum < fixedSum;
+
   return (
     <>
       <button
@@ -362,6 +371,13 @@ function GesamtbetragButton({
               autoFocus
             />
           </div>
+          {wirdZurueckgesetzt && (
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              {fixedRows.length} Monat{fixedRows.length !== 1 ? "e sind" : " ist"} bereits
+              individuell fixiert (zusammen {fmt(fixedSum)} €). Beim Fortfahren werden diese
+              Fixierungen aufgehoben und der neue Betrag gleichmäßig auf alle Monate verteilt.
+            </p>
+          )}
         </div>
       </Modal>
     </>

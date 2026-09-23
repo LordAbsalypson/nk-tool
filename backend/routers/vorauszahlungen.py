@@ -211,20 +211,22 @@ def set_vorauszahlung_gesamt(
     auto_rows = [r for r in rows if not getattr(r, override_attr)]
     manuell_summe = round(sum(getattr(r, betrag_attr) for r in manuell_rows), 2)
 
+    rest = round(body.betrag_gesamt - manuell_summe, 2)
+    if rest < 0:
+        # Neuer Gesamtbetrag reicht nicht für die Summe der bereits individuell fixierten
+        # Monate (z. B. tatsächlich weniger gezahlt als ursprünglich fixiert). Kein Hard-Block
+        # mehr (User-Entscheidung 2026-09-23) - alle Fixierungen fuer dieses Zielfeld werden
+        # aufgehoben und der neue Gesamtbetrag gleichmaessig auf ALLE Monate neu verteilt. Das
+        # Frontend zeigt vorher einen Hinweis, blockiert das Absenden aber nicht.
+        for r in manuell_rows:
+            setattr(r, override_attr, False)
+        auto_rows = rows
+        rest = body.betrag_gesamt
+
     if not auto_rows:
         raise HTTPException(
             status_code=400,
             detail="Alle Monate sind bereits individuell fixiert — nichts zu verteilen",
-        )
-
-    rest = round(body.betrag_gesamt - manuell_summe, 2)
-    if rest < 0:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Gesamtbetrag ({body.betrag_gesamt:.2f} €) ist kleiner als die Summe der "
-                f"bereits individuell fixierten Monate ({manuell_summe:.2f} €)"
-            ),
         )
 
     pro_monat = round(rest / len(auto_rows), 2)

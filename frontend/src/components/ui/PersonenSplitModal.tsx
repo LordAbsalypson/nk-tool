@@ -6,6 +6,7 @@ import type { PersonenSplitPdfErgebnis, PersonenSplitVorlageOut } from "../../ty
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { PdfPreviewModal } from "./PdfPreviewModal";
+import { useToast } from "../../hooks/useToast";
 
 interface Zeile {
   name: string;
@@ -38,8 +39,9 @@ export function PersonenSplitModal({
   vorgeschlagenerName,
   onError,
 }: Props) {
+  const { addToast } = useToast();
   const [zeilen, setZeilen] = useState<Zeile[]>([{ name: "", anteil: "" }]);
-  const [merken, setMerken] = useState(false);
+  const [merken, setMerken] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const [ergebnisse, setErgebnisse] = useState<PersonenSplitPdfErgebnis[] | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
@@ -54,7 +56,7 @@ export function PersonenSplitModal({
     if (open) return;
     return () => {
       setInitialized(false);
-      setMerken(false);
+      setMerken(true);
       setErgebnisse(null);
     };
   }, [open]);
@@ -104,6 +106,8 @@ export function PersonenSplitModal({
         downloadUrl={pdfPreview.url}
         dateiname={pdfPreview.dateiname}
         onClose={() => setPdfPreview(null)}
+        onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
+        onError={onError}
       />
     );
   }
@@ -185,6 +189,11 @@ export function PersonenSplitModal({
         Summe: {summe.toLocaleString("de-DE", { maximumFractionDigits: 1 })}%{" "}
         {!summeOk && "— muss 100% ergeben"}
       </div>
+      {!namenOk && (
+        <div className="mt-1 text-sm text-red-600 font-medium">
+          Bitte für jede Gruppe einen Namen eintragen, damit PDFs erstellt werden können.
+        </div>
+      )}
 
       <label className="flex items-center gap-2 text-sm mt-3">
         <input type="checkbox" checked={merken} onChange={(e) => setMerken(e.target.checked)} />

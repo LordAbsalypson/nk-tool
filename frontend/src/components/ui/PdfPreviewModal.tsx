@@ -1,29 +1,72 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
+import { getDesktopApi, isDesktopApp } from "../../hooks/getDesktopApi";
 
 interface PdfPreviewModalProps {
   /** Vollständiger download_url-Pfad vom Backend (inkl. /api/v1-Präfix). */
   downloadUrl: string;
   dateiname: string;
   onClose: () => void;
+  /** Desktop-App: wird nach erfolgreichem Speichern mit dem gewählten Pfad aufgerufen. */
+  onSaved?: (path: string) => void;
+  /** Desktop-App: wird bei Lade-/Speicherfehlern aufgerufen (kein Modal zum Anzeigen vorhanden). */
+  onError?: (msg: string) => void;
 }
 
-/** Zeigt eine erzeugte PDF inline an (Schließen/Drucken/Herunterladen), statt
- * sie per window.open() in einem neuen Tab zu öffnen. Zwei Gründe, warum das
- * nötig war, nicht nur UX-Wunsch: (1) window.open() funktioniert in der
- * Desktop-App nicht zuverlässig — pywebviews eingebettete WebView hat kein
- * Tab-Konzept, öffnet dort de facto nichts sichtbares. (2) Seit dem
- * Passwortschutz-Feature ist der Download-Endpunkt durch require_auth()
- * geschützt — ein simpler window.open() schickt keinen Authorization-Header
- * mit und bekäme 401 statt der PDF. Lädt die Datei stattdessen authentifiziert
- * als Blob (api.getBlob) und zeigt sie in einem <iframe>. */
-export function PdfPreviewModal({ downloadUrl, dateiname, onClose }: PdfPreviewModalProps) {
+function blobToBase64(blob: Blob): Promise<string> {
+  return blob.arrayBuffer().then((buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  });
+}
+
+/** Web/Browser: zeigt eine erzeugte PDF inline an (Schließen/Drucken/Herunterladen)
+ * per authentifiziertem Blob in einem <iframe> — funktioniert dort zuverlässig.
+ *
+ * Desktop-App: rendert bewusst KEIN iframe/keine Vorschau. WKWebView (macOS, über
+ * pywebview) zeigt eingebettete PDFs über eine native PDFKit-Ebene an, die die
+ * restliche Seite überlagern und jede Interaktion blockieren kann (bestätigter
+ * Bug: weder "Herunterladen" noch "Schließen" reagierten mehr, nur ein Kill der
+ * App half). Der HTML5 <a download>-Mechanismus funktioniert für blob:-URLs in
+ * WKWebView außerdem ohnehin nicht zuverlässig. Stattdessen wird die PDF direkt
+ * über den nativen "Speichern unter"-Dialog gespeichert (DesktopApi.save_pdf,
+ * siehe desktop/app.py) — kein Modal, kein iframe, keine Absturzgefahr. */
+export function PdfPreviewModal({ downloadUrl, dateiname, onClose, onSaved, onError }: PdfPreviewModalProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const desktop = isDesktopApp();
 
   useEffect(() => {
     let cancelled = false;
+
+    if (desktop) {
+      api
+        .getBlob(downloadUrl)
+        .then((blob) => blobToBase64(blob))
+        .then((base64) => getDesktopApi().save_pdf(dateiname, base64))
+        .then((result) => {
+          if (cancelled) return;
+          if (result.path) onSaved?.(result.path);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            onError?.(err instanceof Error ? err.message : "PDF konnte nicht gespeichert werden.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) onClose();
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     let url: string | null = null;
     api
       .getBlob(downloadUrl)
@@ -39,7 +82,10 @@ export function PdfPreviewModal({ downloadUrl, dateiname, onClose }: PdfPreviewM
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [downloadUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [downloadUrl, desktop]);
+
+  if (desktop) return null;
 
   const handlePrint = () => {
     iframeRef.current?.contentWindow?.print();

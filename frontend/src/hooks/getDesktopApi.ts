@@ -46,6 +46,11 @@ interface DesktopApi {
   pick_export_destination: () => Promise<PickResult>;
   export_db: (destPath: string) => Promise<OkResult>;
   open_external: (url: string) => Promise<OkResult>;
+  /** Nativer "Speichern unter"-Dialog für eine erzeugte PDF (Downloads als Default-Ort). */
+  save_pdf: (
+    suggestedName: string,
+    base64Data: string
+  ) => Promise<PickResult & Partial<OkResult> & { path?: string }>;
 }
 
 declare global {
