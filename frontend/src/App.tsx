@@ -133,6 +133,7 @@ function AppInner() {
   const [dark, setDark] = useDarkMode();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [stage, setStage] = useState<StageId>(1);
+  const [vzFocusMieterId, setVzFocusMieterId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showGlossar, setShowGlossar] = useState(false);
   const [showPdfVorlage, setShowPdfVorlage] = useState(false);
@@ -329,6 +330,12 @@ function AppInner() {
               liegenschaft={selected}
               onSaved={() => addToast("success", "Gespeichert")}
               onError={(msg) => addToast("error", `Fehler: ${msg}`)}
+              vzFocusMieterId={vzFocusMieterId}
+              onVzFocusConsumed={() => setVzFocusMieterId(null)}
+              onGoToVorauszahlung={(mieterId) => {
+                setVzFocusMieterId(mieterId);
+                setStage(4);
+              }}
             />
           )}
         </main>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { VorauszahlungGrid, Vorauszahlung } from "../../types";
@@ -10,6 +10,11 @@ interface Props {
   liegenschaftId: number;
   onSaved: () => void;
   onError: (msg: string) => void;
+  /** Mieter-ID, zu der einmalig gescrollt/hervorgehoben werden soll (Sprung aus der
+   * Abrechnung). null = kein Sprung ansteht. */
+  focusMieterId?: number | null;
+  /** Wird aufgerufen, sobald die Hervorhebung ausgelöst wurde. */
+  onFocusConsumed?: () => void;
 }
 
 function fmt(n: number) {
@@ -435,7 +440,8 @@ function RowFillButton({
   );
 }
 
-export function VorauszahlungenTab({ periodeId, onSaved, onError }: Props) {
+export function VorauszahlungenTab({ periodeId, onSaved, onError, focusMieterId, onFocusConsumed }: Props) {
+  const [highlightMieterId, setHighlightMieterId] = useState<number | null>(null);
   const { data: grid, isLoading } = useQuery({
     queryKey: ["vorauszahlungen", periodeId],
     queryFn: () => api.get<VorauszahlungGrid>(`/perioden/${periodeId}/vorauszahlungen`),
@@ -444,6 +450,21 @@ export function VorauszahlungenTab({ periodeId, onSaved, onError }: Props) {
   const [pendingScope, setPendingScope] = useState<{ vz: Vorauszahlung; neuerWert: number } | null>(
     null
   );
+
+  // Sprung aus der Abrechnung (Stift bei "Vorauszahlung"): einmalig zur Mieter-Zeile scrollen
+  // und sie kurz hervorheben, sobald das Grid geladen ist.
+  useEffect(() => {
+    if (!grid || focusMieterId == null) return;
+    const row = document.getElementById(`vz-mieter-${focusMieterId}`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightMieterId(focusMieterId);
+    onFocusConsumed?.();
+    const timeout = setTimeout(() => setHighlightMieterId(null), 2000);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grid, focusMieterId]);
 
   if (isLoading)
     return (
@@ -531,7 +552,12 @@ export function VorauszahlungenTab({ periodeId, onSaved, onError }: Props) {
                 return (
                   <tr
                     key={m.mieter_id}
-                    className="border-b border-gray-100 hover:bg-gray-50"
+                    id={`vz-mieter-${m.mieter_id}`}
+                    className={`border-b border-gray-100 transition-colors duration-500 ${
+                      highlightMieterId === m.mieter_id
+                        ? "bg-blue-50 dark:bg-blue-950/30"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
                     {mi === 0 && (
                       <td

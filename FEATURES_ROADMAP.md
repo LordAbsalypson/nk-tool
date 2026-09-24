@@ -39,9 +39,11 @@ Vorauszahlungen → Abrechnung.
 ### Abrechnung (Live-Schritt 4)
 - Kostenverteilung je Mieter berechnen und Mieterwechsel-Zeitanteile korrekt
   darstellen (inkl. Verbrauchsaufteilung bei unterjährigem Wechsel)
-- **Ausprobieren-Modus**: rein lesende Live-Vorschau, mit der sich Zahlen probeweise
-  ändern lassen, ohne die echten Daten zu verändern — Debounced-Vorschau der
-  Auswirkung auf das Ergebnis
+- **Ausprobieren-Modus** ("Mit angepassten Stammdaten ausprobieren", period-weit seit
+  2026-09-24): rein lesende Live-Vorschau, mit der sich Kostenart-Sätze probeweise ändern
+  lassen — wirkt live auf die Salden aller Mieter der Periode gleichzeitig, ohne die echten
+  Daten zu verändern. Optional zusätzlich ein einzelner Mieter für Personen/Fläche/Endbetrag
+  wählbar. Debounced-Vorschau der Auswirkung auf das Ergebnis
 - **Personen-Split**: Aufteilung von Kostenanteilen nach Personenzahl innerhalb
   einer Wohnung/Abrechnung
 - **Sammelabrechnung**: eine gebündelte Übersicht/Export für mehrere Mieter statt

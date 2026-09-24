@@ -101,8 +101,9 @@ Herunterladen) — siehe die Klick-Pfeile neben jeder Zeile.
 
 - **Liegenschafts-Verbund**: geteilte Kosten (z. B. gemeinsamer Hausmeister) auf mehrere Häuser
   aufteilen — Button „Verbund / geteilte Kosten" unten links in der Seitenleiste.
-- **Ausprobieren-Modus**: Änderungen live durchrechnen, ohne etwas zu speichern — in der
-  Einzelabrechnung verfügbar.
+- **Ausprobieren-Modus**: Kostenart-Sätze anpassen und live sehen, wie sich die Salden aller
+  Mieter ändern, ohne etwas zu speichern — Button „Mit angepassten Stammdaten ausprobieren"
+  oben in der Abrechnung.
 - **Glossar**: Fachbegriffe (Grundkosten, HKVO, Umlageschlüssel, …) — Button „Glossar & Begriffe"
   in der Fußzeile.
 - Vollständige API-Referenz für Automatisierung/LLM-Zugriff: [AI_COMMANDS.md](../AI_COMMANDS.md).

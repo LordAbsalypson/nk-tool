@@ -955,3 +955,39 @@ def vorschau_schluessel_abrechnung(
     finally:
         db.rollback()
     return ApiResponse(ok=True, data=result)
+
+
+@router.post("/perioden/{periode_id}/schluessel-abrechnung/vorschau")
+def vorschau_schluessel_abrechnung_periode(
+    periode_id: int, body: VorschauRequest, db: Session = Depends(get_db)
+) -> ApiResponse:
+    """Period-weite Variante von vorschau_schluessel_abrechnung() — für den
+    "Mit angepassten Stammdaten ausprobieren"-Bereich am Kopf der Abrechnung,
+    der Kostenart-Satz-Änderungen live über ALLE Mieter der Periode zeigt statt
+    nur für einen einzelnen. Gleiches Rollback-Prinzip, nichts wird persistiert."""
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+    try:
+        for ov in body.uebersteuerungen:
+            _speichere_uebersteuerung(db, periode_id, ov)
+        for vov in body.verbrauch_overrides:
+            _speichere_verbrauch_override_transient(db, periode_id, vov)
+        for w in body.kostenart_werte:
+            _speichere_kostenart_wert(
+                db,
+                periode_id,
+                w.kostenart_id,
+                DirektKostenartWertSet(
+                    preis_pro_einheit=w.preis_pro_einheit,
+                    preis_grund_pro_m2=w.preis_grund_pro_m2,
+                    preis_verbrauch_pro_einheit=w.preis_verbrauch_pro_einheit,
+                    verhaeltnis_grund=w.verhaeltnis_grund,
+                ),
+            )
+        db.flush()
+        ergebnisse = berechne_schluessel_periode(db, periode_id)
+        result = [_schluessel_mieter_out(e) for e in ergebnisse]
+    finally:
+        db.rollback()
+    return ApiResponse(ok=True, data=result)

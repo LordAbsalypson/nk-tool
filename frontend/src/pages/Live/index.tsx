@@ -21,12 +21,27 @@ interface Props {
   liegenschaft: Liegenschaft;
   onSaved: () => void;
   onError: (msg: string) => void;
+  /** Mieter-ID, zu der in den Vorauszahlungen gescrollt/hervorgehoben werden soll (Sprung aus
+   * der Abrechnung über den Stift bei "Vorauszahlung") — null, wenn kein Sprung ansteht. */
+  vzFocusMieterId: number | null;
+  /** Wird aufgerufen, sobald die Hervorhebung ausgelöst wurde, damit ein erneuter Klick auf
+   * denselben Mieter später wieder einen Sprung auslösen kann. */
+  onVzFocusConsumed: () => void;
+  onGoToVorauszahlung: (mieterId: number) => void;
 }
 
 /** Gemeinsame Perioden-Auswahl für die Schritte Kostenarten → Zählerstände →
  * Vorauszahlungen → Abrechnung — eine Periode wird einmal gewählt und gilt für
  * den ganzen Ablauf, statt sie in jedem Schritt neu zu wählen. */
-export default function Live({ stage, liegenschaft, onSaved, onError }: Props) {
+export default function Live({
+  stage,
+  liegenschaft,
+  onSaved,
+  onError,
+  vzFocusMieterId,
+  onVzFocusConsumed,
+  onGoToVorauszahlung,
+}: Props) {
   const [periodeId, setPeriodeId] = useState<number | null>(null);
 
   const { data: perioden = [], isLoading } = useQuery({
@@ -92,6 +107,8 @@ export default function Live({ stage, liegenschaft, onSaved, onError }: Props) {
               liegenschaftId={liegenschaft.id}
               onSaved={onSaved}
               onError={onError}
+              focusMieterId={vzFocusMieterId}
+              onFocusConsumed={onVzFocusConsumed}
             />
           )}
           {stage === 5 && (
@@ -99,6 +116,7 @@ export default function Live({ stage, liegenschaft, onSaved, onError }: Props) {
               periodeId={periodeId}
               liegenschaftName={liegenschaft.name}
               onError={onError}
+              onGoToVorauszahlung={onGoToVorauszahlung}
             />
           )}
         </div>

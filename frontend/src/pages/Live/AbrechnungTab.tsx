@@ -28,6 +28,24 @@ const ABSCHNITTE_DEFAULT: PdfAbschnitte = {
   empfaenger_anzeigen: true,
 };
 
+function pdfAbschnitteKey(periodeId: number): string {
+  return `nk-tool-pdf-abschnitte-${periodeId}`;
+}
+
+/** Lädt die zuletzt gewählten PDF-Abschnitte (insbesondere das Datum) je Periode aus
+ * localStorage — ohne das würde z. B. das manuell gesetzte Datum bei jedem Stage-/
+ * Liegenschaftswechsel (Neu-Mount von AbrechnungTab) auf "heute" zurückspringen, obwohl
+ * man oft alle Abrechnungen einer Periode mit demselben Datum ausstellen möchte. */
+function ladeAbschnitte(periodeId: number): PdfAbschnitte {
+  try {
+    const raw = localStorage.getItem(pdfAbschnitteKey(periodeId));
+    if (!raw) return ABSCHNITTE_DEFAULT;
+    return { ...ABSCHNITTE_DEFAULT, ...JSON.parse(raw) };
+  } catch {
+    return ABSCHNITTE_DEFAULT;
+  }
+}
+
 function fmtEur(n: number) {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -59,6 +77,7 @@ function MieterZeile({
   onKombiToggle,
   abschnitte,
   segmentAnzahl,
+  onGoToVorauszahlung,
 }: {
   m: SchluesselMieter;
   periodeId: number;
@@ -68,9 +87,9 @@ function MieterZeile({
   onKombiToggle: () => void;
   abschnitte: PdfAbschnitte;
   segmentAnzahl: number;
+  onGoToVorauszahlung: (mieterId: number) => void;
 }) {
   const [offen, setOffen] = useState(false);
-  const [ausprobierenOffen, setAusprobierenOffen] = useState(false);
   const [nameBearbeiten, setNameBearbeiten] = useState(false);
   const [nameEntwurf, setNameEntwurf] = useState(m.anzeigename);
   const [splitOffen, setSplitOffen] = useState(false);
@@ -374,7 +393,14 @@ function MieterZeile({
                 </tr>
                 <tr>
                   <td colSpan={2} className="py-0.5 text-right text-gray-500">
-                    Vorauszahlung
+                    <button
+                      type="button"
+                      title="Zu Vorauszahlungen springen und bearbeiten"
+                      onClick={() => onGoToVorauszahlung(m.mieter_id)}
+                      className="inline-flex items-center gap-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                    >
+                      Vorauszahlung <PencilIcon className="w-3 h-3" />
+                    </button>
                   </td>
                   <td className="py-0.5 text-right tabular-nums">{fmtEur(m.vorauszahlung_ist)} €</td>
                 </tr>
@@ -396,14 +422,6 @@ function MieterZeile({
               onClick={() => pdf.mutate()}
             >
               {pdf.isPending ? "Erstelle PDF…" : "PDF erstellen"}
-            </button>
-            <button
-              className="btn btn-secondary btn-sm flex items-center gap-1"
-              disabled={!m.berechenbar}
-              onClick={() => setAusprobierenOffen(true)}
-              title="Werte anpassen und live sehen, wie sich Guthaben/Nachzahlung ändern"
-            >
-              <BeakerIcon className="w-3.5 h-3.5" /> Ausprobieren
             </button>
             {m.personen > 1 && (
               <button
@@ -432,17 +450,6 @@ function MieterZeile({
         />
       )}
 
-      {ausprobierenOffen && (
-        <AusprobierenModal
-          open={ausprobierenOffen}
-          onClose={() => setAusprobierenOffen(false)}
-          periodeId={periodeId}
-          mieter={m}
-          onSaved={() => addToast("success", "Änderungen gespeichert")}
-          onError={onError}
-        />
-      )}
-
       {pdfPreview && (
         <PdfPreviewModal
           downloadUrl={pdfPreview.url}
@@ -460,15 +467,26 @@ interface Props {
   periodeId: number;
   liegenschaftName: string;
   onError: (msg: string) => void;
+  onGoToVorauszahlung: (mieterId: number) => void;
 }
 
-export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
+export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVorauszahlung }: Props) {
   const { addToast } = useToast();
+  const qc = useQueryClient();
   const [kombiModus, setKombiModus] = useState(false);
   const [kombiAusgewaehlt, setKombiAusgewaehlt] = useState<Set<number>>(new Set());
   const [kombiName, setKombiName] = useState("");
-  const [abschnitte, setAbschnitte] = useState<PdfAbschnitte>(ABSCHNITTE_DEFAULT);
+  const [abschnitte, setAbschnitte] = useState<PdfAbschnitte>(() => ladeAbschnitte(periodeId));
   const [sammelOffen, setSammelOffen] = useState(false);
+  const [ausprobierenOffen, setAusprobierenOffen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(pdfAbschnitteKey(periodeId), JSON.stringify(abschnitte));
+    } catch {
+      // localStorage nicht verfügbar (z. B. privater Modus) — Datum bleibt nur für diese Sitzung erhalten.
+    }
+  }, [periodeId, abschnitte]);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
 
   const { data: mieterListe = [], isLoading } = useQuery({
@@ -526,7 +544,15 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          className="btn btn-secondary btn-sm flex items-center gap-1"
+          disabled={mieterListe.length === 0}
+          onClick={() => setAusprobierenOffen(true)}
+          title="Kostenart-Sätze anpassen und live sehen, wie sich die Salden aller Mieter ändern"
+        >
+          <BeakerIcon className="w-3.5 h-3.5" /> Mit angepassten Stammdaten ausprobieren
+        </button>
         <button className="btn btn-secondary btn-sm" onClick={() => setSammelOffen(true)}>
           Sammelabrechnung erstellen
         </button>
@@ -649,6 +675,7 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
                 onKombiToggle={() => toggleKombiAuswahl(m.mieter_id)}
                 abschnitte={abschnitte}
                 segmentAnzahl={mieterListe.filter((x) => x.wohnung_id === m.wohnung_id).length}
+                onGoToVorauszahlung={onGoToVorauszahlung}
               />
             ))}
           </div>
@@ -661,6 +688,24 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError }: Props) {
           onClose={() => setSammelOffen(false)}
           periodeId={periodeId}
           liegenschaftName={liegenschaftName}
+          onError={onError}
+        />
+      )}
+
+      {ausprobierenOffen && (
+        <AusprobierenModal
+          open={ausprobierenOffen}
+          onClose={() => setAusprobierenOffen(false)}
+          periodeId={periodeId}
+          mieterListe={mieterListe}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["schluessel-abrechnung"] });
+            qc.invalidateQueries({ queryKey: ["direkt-kostenarten-werte"] });
+            qc.invalidateQueries({ queryKey: ["direkt-uebersteuerungen"] });
+            qc.invalidateQueries({ queryKey: ["wohnung-detail"] });
+            qc.invalidateQueries({ queryKey: ["mieter-detail"] });
+            addToast("success", "Änderungen gespeichert");
+          }}
           onError={onError}
         />
       )}

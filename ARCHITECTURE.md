@@ -114,9 +114,11 @@ with engine.connect() as _conn:
 Gespeichert unter `backend/uploads/kp_{id}.{ext}`.
 
 ### "Ausprobieren"-Modus (sichere Live-Vorschau)
-`POST /perioden/{id}/mieter/{id}/schluessel-abrechnung/vorschau` wendet übergebene Overrides
-innerhalb derselben DB-Transaktion an, berechnet mit der echten Engine und macht alles per
-`db.rollback()` im `finally`-Block rückgängig — nichts wird persistiert.
+`POST /perioden/{id}/schluessel-abrechnung/vorschau` (period-weit, Standard seit 2026-09-24) und
+`POST /perioden/{id}/mieter/{id}/schluessel-abrechnung/vorschau` (Einzelmieter, z. B. für die
+Verbrauchswert-Live-Vorschau in der Abrechnung) wenden übergebene Overrides innerhalb derselben
+DB-Transaktion an, berechnen mit der echten Engine und machen alles per `db.rollback()` im
+`finally`-Block rückgängig — nichts wird persistiert.
 
 ## Kein Auth-Layer
 
