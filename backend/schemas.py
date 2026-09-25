@@ -874,6 +874,10 @@ class PersonenSplitPdfRequest(BaseModel):
 
     gruppen: list[PersonenSplitVorlageZeile] = Field(min_length=2)
     speichern: bool = False
+    datum_anzeigen: bool = True
+    datum: Optional[str] = None  # ISO "YYYY-MM-DD" — leer = heute
+    absender_anzeigen: bool = True
+    empfaenger_anzeigen: bool = True
 
     @field_validator("gruppen")
     @classmethod
@@ -932,6 +936,10 @@ class KombiniertePersonenSplitPdfRequest(BaseModel):
     mieter_ids: list[int] = Field(min_length=2)
     gruppen: list[PersonenSplitVorlageZeile] = Field(min_length=2)
     speichern: bool = False
+    datum_anzeigen: bool = True
+    datum: Optional[str] = None  # ISO "YYYY-MM-DD" — leer = heute
+    absender_anzeigen: bool = True
+    empfaenger_anzeigen: bool = True
 
     @field_validator("mieter_ids")
     @classmethod

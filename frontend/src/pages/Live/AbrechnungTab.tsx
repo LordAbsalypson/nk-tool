@@ -10,7 +10,7 @@ import { SammelabrechnungModal } from "../../components/ui/SammelabrechnungModal
 import { PdfPreviewModal } from "../../components/ui/PdfPreviewModal";
 import { useToast } from "../../hooks/useToast";
 
-interface PdfAbschnitte {
+export interface PdfAbschnitte {
   datum_anzeigen: boolean;
   datum: string;
   absender_anzeigen: boolean;
@@ -446,6 +446,7 @@ function MieterZeile({
           wohnungId={m.wohnung_id}
           wohnungBezeichnung={m.wohnung_bezeichnung}
           vorgeschlagenerName={m.anzeigename}
+          abschnitte={abschnitte}
           onError={onError}
         />
       )}
@@ -714,6 +715,7 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
           wohnungId={kombiSegmente[kombiSegmente.length - 1]?.wohnung_id}
           wohnungBezeichnung={kombiWohnungBezeichnung}
           vorgeschlagenerName={vorgeschlagenerKombiName}
+          abschnitte={abschnitte}
           onError={onError}
         />
       )}

@@ -423,10 +423,16 @@ def erzeuge_kombinierte_personen_split_pdf(
     vorlage = db.query(PdfVorlage).first()
     ordner_name = periode.bezeichnung.replace("/", "-")
     wohnungs_teil = "-".join(_dateiname(s.wohnung_bezeichnung) for s in segmente)
+    optionen = PdfAbschnitteOptionen(
+        datum_anzeigen=body.datum_anzeigen,
+        datum=body.datum,
+        absender_anzeigen=body.absender_anzeigen,
+        empfaenger_anzeigen=body.empfaenger_anzeigen,
+    )
     ergebnisse = []
     for gr in body.gruppen:
         daten = AbrechnungPdfDaten(
-            **basis_pdf_kwargs(vorlage, lieg),
+            **basis_pdf_kwargs(vorlage, lieg, optionen),
             empfaenger_name=gr.name,
             empfaenger_strasse=f"{lieg.adresse}, {letzte_wohnung}",
             empfaenger_ort=f"{lieg.plz} {lieg.ort}",
@@ -561,10 +567,16 @@ def erzeuge_personen_split_pdf(
 
     vorlage = db.query(PdfVorlage).first()
     ordner_name = periode.bezeichnung.replace("/", "-")
+    optionen = PdfAbschnitteOptionen(
+        datum_anzeigen=body.datum_anzeigen,
+        datum=body.datum,
+        absender_anzeigen=body.absender_anzeigen,
+        empfaenger_anzeigen=body.empfaenger_anzeigen,
+    )
     ergebnisse = []
     for gr in body.gruppen:
         daten = AbrechnungPdfDaten(
-            **basis_pdf_kwargs(vorlage, lieg),
+            **basis_pdf_kwargs(vorlage, lieg, optionen),
             empfaenger_name=gr.name,
             empfaenger_strasse=f"{lieg.adresse}, {erg.wohnung_bezeichnung}",
             empfaenger_ort=f"{lieg.plz} {lieg.ort}",

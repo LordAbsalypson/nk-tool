@@ -7,6 +7,7 @@ import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { PdfPreviewModal } from "./PdfPreviewModal";
 import { useToast } from "../../hooks/useToast";
+import type { PdfAbschnitte } from "../../pages/Live/AbrechnungTab";
 
 interface Zeile {
   name: string;
@@ -26,6 +27,10 @@ interface Props {
   wohnungId: number;
   wohnungBezeichnung: string;
   vorgeschlagenerName: string;
+  /** PDF-Kopf-Abschnitte (Datum/Absender/Adressat) — dieselbe Auswahl wie oben in
+   *  der Abrechnung, damit z. B. das manuell gesetzte Datum übernommen wird statt
+   *  stillschweigend auf "heute" zurückzufallen. */
+  abschnitte: PdfAbschnitte;
   onError: (msg: string) => void;
 }
 
@@ -45,6 +50,7 @@ export function PersonenSplitModal({
   wohnungId,
   wohnungBezeichnung,
   vorgeschlagenerName,
+  abschnitte,
   onError,
 }: Props) {
   const kombiniert = mieterIds !== undefined;
@@ -102,6 +108,7 @@ export function PersonenSplitModal({
             anteil_prozent: parseFloat(z.anteil.replace(",", ".")),
           })),
           speichern: merken,
+          ...abschnitte,
         }
       ),
     onSuccess: (result) => setErgebnisse(result),
