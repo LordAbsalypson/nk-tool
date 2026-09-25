@@ -924,6 +924,31 @@ class KombinierteAbrechnungRequest(BaseModel):
         return v
 
 
+class KombiniertePersonenSplitPdfRequest(BaseModel):
+    """Personen-Split für einen kombinierten (Wohnungstausch-)Zeitraum —
+    dieselben Mieter-Segmente wie bei KombinierteAbrechnungRequest, aber pro
+    Bewohner-Gruppe eine eigene PDF mit vollen Kostenzeilen und Anteils-Block."""
+
+    mieter_ids: list[int] = Field(min_length=2)
+    gruppen: list[PersonenSplitVorlageZeile] = Field(min_length=2)
+    speichern: bool = False
+
+    @field_validator("mieter_ids")
+    @classmethod
+    def validate_eindeutig(cls, v: list[int]) -> list[int]:
+        if len(set(v)) != len(v):
+            raise ValueError("mieter_ids enthält doppelte IDs — jedes Segment nur einmal auswählen")
+        return v
+
+    @field_validator("gruppen")
+    @classmethod
+    def validate_summe_100(cls, v: list[PersonenSplitVorlageZeile]) -> list[PersonenSplitVorlageZeile]:
+        summe = sum(g.anteil_prozent for g in v)
+        if abs(summe - 100.0) > 0.5:
+            raise ValueError(f"Anteile ergeben {summe:.1f}% statt 100% — bitte korrigieren")
+        return v
+
+
 class SchluesselMieterOut(BaseModel):
     mieter_id: int
     anzeigename: str

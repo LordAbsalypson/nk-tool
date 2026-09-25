@@ -479,6 +479,7 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
   const [abschnitte, setAbschnitte] = useState<PdfAbschnitte>(() => ladeAbschnitte(periodeId));
   const [sammelOffen, setSammelOffen] = useState(false);
   const [ausprobierenOffen, setAusprobierenOffen] = useState(false);
+  const [kombiSplitOffen, setKombiSplitOffen] = useState(false);
 
   useEffect(() => {
     try {
@@ -500,6 +501,11 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
   // Name im Feld stehen, ohne dass das jemand bemerkt.
   const vorgeschlagenerKombiName =
     mieterListe.find((m) => kombiAusgewaehlt.has(m.mieter_id))?.anzeigename ?? "";
+
+  const kombiSegmente = mieterListe
+    .filter((m) => kombiAusgewaehlt.has(m.mieter_id))
+    .sort((a, b) => a.miet_von.localeCompare(b.miet_von));
+  const kombiWohnungBezeichnung = [...new Set(kombiSegmente.map((s) => s.wohnung_bezeichnung))].join(" → ");
 
   const kombiPdf = useMutation({
     mutationFn: () =>
@@ -655,6 +661,13 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
                     ? "Erstelle…"
                     : `${kombiAusgewaehlt.size} Zeiträume → PDF`}
                 </button>
+                <button
+                  className="btn btn-secondary btn-sm whitespace-nowrap"
+                  onClick={() => setKombiSplitOffen(true)}
+                  title="Getrennte Abrechnungen für mehrere Bewohner über den ganzen kombinierten Zeitraum erstellen"
+                >
+                  Auf Bewohner aufteilen
+                </button>
               </div>
             )}
           </div>
@@ -688,6 +701,19 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
           onClose={() => setSammelOffen(false)}
           periodeId={periodeId}
           liegenschaftName={liegenschaftName}
+          onError={onError}
+        />
+      )}
+
+      {kombiSplitOffen && (
+        <PersonenSplitModal
+          open={kombiSplitOffen}
+          onClose={() => setKombiSplitOffen(false)}
+          periodeId={periodeId}
+          mieterIds={kombiSegmente.map((s) => s.mieter_id)}
+          wohnungId={kombiSegmente[kombiSegmente.length - 1]?.wohnung_id}
+          wohnungBezeichnung={kombiWohnungBezeichnung}
+          vorgeschlagenerName={vorgeschlagenerKombiName}
           onError={onError}
         />
       )}

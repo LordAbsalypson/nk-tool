@@ -49,6 +49,7 @@ from schemas import (
     DirektUebersteuerungOut,
     DirektUebersteuerungSet,
     KombinierteAbrechnungRequest,
+    KombiniertePersonenSplitPdfRequest,
     PdfAbschnitteOptionen,
     PersonenSplitPdfRequest,
     PersonenSplitVorlageOut,
@@ -363,6 +364,123 @@ def erzeuge_kombinierte_pdf(
 def lade_kombinierte_pdf(periode_id: int, ordner: str, datei: str) -> FileResponse:
     """Eigene Download-Route statt der mieter_id-tragenden Einzel-Route —
     eine kombinierte PDF gehört zu mehreren Mieter-IDs, keiner einzelnen."""
+    return _serve_pdf(ordner, datei)
+
+
+@router.post("/perioden/{periode_id}/mieter-kombiniert/personen-split/pdf")
+def erzeuge_kombinierte_personen_split_pdf(
+    periode_id: int, body: KombiniertePersonenSplitPdfRequest, db: Session = Depends(get_db)
+) -> ApiResponse:
+    """Personen-Split für einen kombinierten (Wohnungstausch-)Zeitraum — z. B.
+    ein Ehepaar, das während der Periode die Wohnung gewechselt hat und dessen
+    Nebenkosten trotzdem auf mehrere Bewohner-Gruppen aufgeteilt werden sollen.
+    Baut dieselben Segment-Zeilen wie erzeuge_kombinierte_pdf(), erzeugt aber
+    pro Gruppe eine eigene PDF mit vollen Kostenzeilen plus Anteils-Block
+    (identisches Prinzip wie erzeuge_personen_split_pdf(), nur für mehrere
+    Mieter-Segmente statt einem)."""
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+    lieg = db.get(Liegenschaft, periode.liegenschaft_id)
+    if not lieg:
+        raise HTTPException(status_code=404, detail="Liegenschaft nicht gefunden")
+
+    try:
+        alle_ergebnisse = {e.mieter_id: e for e in berechne_schluessel_periode(db, periode_id)}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    segmente = []
+    for mid in body.mieter_ids:
+        erg = alle_ergebnisse.get(mid)
+        if erg is None:
+            raise HTTPException(status_code=404, detail=f"Mieter {mid} nicht in dieser Periode gefunden")
+        if not erg.berechenbar:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{erg.anzeigename} ({erg.wohnung_bezeichnung}) unvollständig: "
+                + "; ".join(erg.fehlende_daten),
+            )
+        segmente.append(erg)
+    segmente.sort(key=lambda e: e.miet_von)
+
+    letzte_wohnung = segmente[-1].wohnung_bezeichnung
+    wohnung_kette = " → ".join(dict.fromkeys(s.wohnung_bezeichnung for s in segmente))
+    gesamt_vorauszahlung = sum(s.vorauszahlung_ist for s in segmente)
+
+    zeilen: list[AbrechnungZeile] = []
+    for s in segmente:
+        zeilen.append(
+            AbrechnungZeile(
+                kostenart=f"{s.wohnung_bezeichnung} · {fmt_datum_de(s.miet_von)} – {fmt_datum_de(s.miet_bis)}",
+                grundlage="",
+                betrag=0.0,
+                ist_abschnitt=True,
+            )
+        )
+        zeilen.extend(AbrechnungZeile(z.kostenart, z.grundlage, z.betrag) for z in s.zeilen)
+
+    vorlage = db.query(PdfVorlage).first()
+    ordner_name = periode.bezeichnung.replace("/", "-")
+    wohnungs_teil = "-".join(_dateiname(s.wohnung_bezeichnung) for s in segmente)
+    ergebnisse = []
+    for gr in body.gruppen:
+        daten = AbrechnungPdfDaten(
+            **basis_pdf_kwargs(vorlage, lieg),
+            empfaenger_name=gr.name,
+            empfaenger_strasse=f"{lieg.adresse}, {letzte_wohnung}",
+            empfaenger_ort=f"{lieg.plz} {lieg.ort}",
+            zeitraum_von=fmt_datum_de(segmente[0].miet_von),
+            zeitraum_bis=fmt_datum_de(segmente[-1].miet_bis),
+            wohnung=wohnung_kette,
+            zeilen=zeilen,
+            vorauszahlung=gesamt_vorauszahlung * gr.anteil_prozent / 100,
+            anteil_prozent=gr.anteil_prozent,
+            hinweis=(
+                f"Anteilige Abrechnung für {gr.name} ({gr.anteil_prozent:.0f}%) über den "
+                f"kombinierten Zeitraum {wohnung_kette} — die Kostenzeilen zeigen die vollen "
+                f"Kosten, Ihr Anteil wird im Summenblock unten ausgewiesen."
+            ),
+        )
+        dateiname = (
+            f"{_dateiname(_hausnummer(lieg.adresse))}_{wohnungs_teil}"
+            f"_{_dateiname(gr.name)}_kombiniert_anteil.pdf"
+        )
+        erzeuge_abrechnung_pdf(daten, PDF_DIR / ordner_name / dateiname)
+        ergebnisse.append(
+            {
+                "name": gr.name,
+                "anteil_prozent": gr.anteil_prozent,
+                "dateiname": dateiname,
+                "download_url": f"/api/v1/perioden/{periode_id}/mieter-kombiniert/personen-split/pdf/download"
+                f"?ordner={quote(ordner_name)}&datei={quote(dateiname)}",
+            }
+        )
+
+    if body.speichern:
+        # "Merken" bezieht sich auf die aktuelle (letzte) Wohnung des kombinierten
+        # Zeitraums — dieselbe Vorlage, die auch bei künftigen Perioden für diese
+        # Wohnung vorgeschlagen wird (siehe get_personen_split_vorlage()).
+        ziel_wohnung_id = segmente[-1].wohnung_id
+        db.query(WohnungPersonenSplitVorlage).filter(
+            WohnungPersonenSplitVorlage.wohnung_id == ziel_wohnung_id
+        ).delete()
+        for i, gr in enumerate(body.gruppen):
+            db.add(
+                WohnungPersonenSplitVorlage(
+                    wohnung_id=ziel_wohnung_id,
+                    name=gr.name,
+                    anteil_prozent=gr.anteil_prozent,
+                    sortierung=i,
+                )
+            )
+        db.commit()
+
+    return ApiResponse(ok=True, data=ergebnisse)
+
+
+@router.get("/perioden/{periode_id}/mieter-kombiniert/personen-split/pdf/download")
+def lade_kombinierte_personen_split_pdf(periode_id: int, ordner: str, datei: str) -> FileResponse:
     return _serve_pdf(ordner, datei)
 
 

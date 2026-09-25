@@ -17,7 +17,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   periodeId: number;
-  mieterId: number;
+  /** Einzelner Mieter (Normalfall) — genau eines von mieterId/mieterIds angeben. */
+  mieterId?: number;
+  /** Mehrere Mieter-Segmente eines kombinierten Zeitraums (Wohnungstausch) — die
+   *  Kostenzeilen aller Segmente werden zusammen angezeigt, der Anteil bezieht
+   *  sich auf die Summe über den ganzen kombinierten Zeitraum. */
+  mieterIds?: number[];
   wohnungId: number;
   wohnungBezeichnung: string;
   vorgeschlagenerName: string;
@@ -28,17 +33,21 @@ interface Props {
  *  "Mutter & Kind" 50% / "Freund" 50%) — erzeugt pro Gruppe eine eigene PDF
  *  mit vollen Kostenzeilen + einem Anteils-Block im Summenbereich. Ändert
  *  nichts an der normalen Wohnungs-Abrechnung; Vorlage wird nur bei
- *  explizitem "merken" gespeichert und nie automatisch angewendet. */
+ *  explizitem "merken" gespeichert und nie automatisch angewendet.
+ *  Funktioniert sowohl für einen einzelnen Mieter (mieterId) als auch für
+ *  einen kombinierten Wohnungstausch-Zeitraum (mieterIds, mehrere Segmente). */
 export function PersonenSplitModal({
   open,
   onClose,
   periodeId,
   mieterId,
+  mieterIds,
   wohnungId,
   wohnungBezeichnung,
   vorgeschlagenerName,
   onError,
 }: Props) {
+  const kombiniert = mieterIds !== undefined;
   const { addToast } = useToast();
   const [zeilen, setZeilen] = useState<Zeile[]>([{ name: "", anteil: "" }]);
   const [merken, setMerken] = useState(true);
@@ -83,8 +92,11 @@ export function PersonenSplitModal({
   const erstellenMutation = useMutation({
     mutationFn: () =>
       api.post<PersonenSplitPdfErgebnis[]>(
-        `/perioden/${periodeId}/mieter/${mieterId}/personen-split/pdf`,
+        kombiniert
+          ? `/perioden/${periodeId}/mieter-kombiniert/personen-split/pdf`
+          : `/perioden/${periodeId}/mieter/${mieterId}/personen-split/pdf`,
         {
+          ...(kombiniert ? { mieter_ids: mieterIds } : {}),
           gruppen: zeilen.map((z) => ({
             name: z.name.trim(),
             anteil_prozent: parseFloat(z.anteil.replace(",", ".")),
@@ -142,8 +154,9 @@ export function PersonenSplitModal({
   return (
     <Modal open={open} title={`Auf Bewohner aufteilen — ${wohnungBezeichnung}`} onClose={onClose} size="lg">
       <p className="text-xs text-gray-500 mb-3">
-        Jede Gruppe bekommt eine eigene PDF mit den vollen Kostenzeilen der Wohnung — der Anteil
-        wird erst im Summenblock berechnet. Eine Gruppe kann mehrere Bewohner bündeln (z. B.
+        Jede Gruppe bekommt eine eigene PDF mit den vollen Kostenzeilen
+        {kombiniert ? " über den ganzen kombinierten Zeitraum" : " der Wohnung"} — der Anteil wird
+        erst im Summenblock berechnet. Eine Gruppe kann mehrere Bewohner bündeln (z. B.
         „Mutter &amp; Kind"). Ändert nichts an der normalen Wohnungs-Abrechnung.
       </p>
 
