@@ -21,6 +21,7 @@ import type {
 } from "../../types";
 import { Spinner } from "./Spinner";
 import { Modal, ConfirmModal } from "./Modal";
+import { DatePicker } from "./DatePicker";
 
 interface Props {
   open: boolean;
@@ -372,6 +373,7 @@ function KostenForm({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<z.input<typeof kostenSchema>, unknown, KostenForm>({
     resolver: zodResolver(kostenSchema),
@@ -379,6 +381,7 @@ function KostenForm({
   });
 
   const schluessel = watch("schluessel_typ");
+  const datumVal = watch("datum");
   const needsWerte = !AUTO_SCHLUESSEL.has(schluessel);
 
   return (
@@ -399,7 +402,13 @@ function KostenForm({
         </div>
         <div>
           <label className="label">Datum (optional)</label>
-          <input type="date" className="input" {...register("datum")} />
+          <DatePicker
+            className="input"
+            value={typeof datumVal === "string" ? datumVal : ""}
+            onValueChange={(iso) =>
+              setValue("datum", iso || undefined, { shouldDirty: true, shouldValidate: true })
+            }
+          />
         </div>
       </div>
       <div>

@@ -5,17 +5,28 @@ from sqlalchemy.orm import Session
 
 from domain import ART_PERIODE_ENDE, ART_PERIODE_START
 from database import get_db
-from models import Abrechnungsperiode, Mieter, MieterVerbrauch, WohnungVerbrauch, Zaehler, Zaehlerstand
+from models import (
+    Abrechnungsperiode,
+    Mieter,
+    MieterVerbrauch,
+    Wohnung,
+    WohnungVerbrauch,
+    Zaehler,
+    Zaehlerstand,
+)
 from schemas import (
     ApiResponse,
+    MieterOut,
+    MieterVerbrauchOut,
+    MieterVerbrauchSet,
+    WohnungOut,
+    WohnungVerbrauchOut,
+    WohnungVerbrauchSet,
+    ZaehlerOut,
     ZaehlerstandCreate,
     ZaehlerstandOut,
     ZaehlerstandUpdate,
     ZaehlerstaendeGruppe,
-    MieterVerbrauchOut,
-    MieterVerbrauchSet,
-    WohnungVerbrauchOut,
-    WohnungVerbrauchSet,
 )
 
 router = APIRouter(tags=["Zählerstände"])
@@ -59,6 +70,141 @@ def _anteiliger_verbrauch(
     return round(max(0.0, verbrauch), 4)
 
 
+def _baue_zaehlerstaende_gruppe(
+    staende: list[Zaehlerstand],
+    periode: Abrechnungsperiode | None,
+    vorperiode_endwert: float | None,
+) -> ZaehlerstaendeGruppe:
+    start_r = next((s for s in staende if s.art == ART_PERIODE_START), None)
+    ende_r = next((s for s in staende if s.art == ART_PERIODE_ENDE), None)
+    start_val = start_r.wert if start_r else None
+    ende_val = ende_r.wert if ende_r else None
+
+    verbrauch: float | None = None
+    if start_r is not None and ende_r is not None:
+        if periode is not None:
+            verbrauch = _anteiliger_verbrauch(
+                start_r.wert,
+                date.fromisoformat(start_r.ablesedatum),
+                ende_r.wert,
+                date.fromisoformat(ende_r.ablesedatum),
+                date.fromisoformat(periode.von_datum),
+                date.fromisoformat(periode.bis_datum),
+            )
+        else:
+            verbrauch = round(ende_r.wert - start_r.wert, 4)
+
+    return ZaehlerstaendeGruppe(
+        staende=[ZaehlerstandOut.model_validate(s) for s in staende],
+        verbrauch=verbrauch,
+        hat_start=start_val is not None,
+        hat_ende=ende_val is not None,
+        vorperiode_endwert=vorperiode_endwert,
+    )
+
+
+@router.get("/perioden/{periode_id}/zaehlerstaende-uebersicht")
+def get_zaehlerstaende_uebersicht(periode_id: int, db: Session = Depends(get_db)) -> ApiResponse:
+    """Lädt Wohnungen, Zähler, Mieter, Zählerstände (inkl. Vorperioden-Endwert) und
+    manuelle Verbrauchs-Overrides für Schritt 3 in einem einzigen Request statt ~50 Einzel-Queries."""
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+
+    wohnungen = (
+        db.query(Wohnung)
+        .filter(Wohnung.liegenschaft_id == periode.liegenschaft_id, Wohnung.aktiv == True)
+        .order_by(Wohnung.sortierung, Wohnung.id)
+        .all()
+    )
+    wohnung_ids = [w.id for w in wohnungen]
+
+    zaehler_by_wohnung: dict[str, list[ZaehlerOut]] = {str(wid): [] for wid in wohnung_ids}
+    mieter_by_wohnung: dict[str, list[MieterOut]] = {str(wid): [] for wid in wohnung_ids}
+    staende_by_zaehler: dict[str, ZaehlerstaendeGruppe] = {}
+
+    if wohnung_ids:
+        alle_zaehler = (
+            db.query(Zaehler)
+            .filter(Zaehler.wohnung_id.in_(wohnung_ids))
+            .order_by(Zaehler.id)
+            .all()
+        )
+        for z in alle_zaehler:
+            zaehler_by_wohnung[str(z.wohnung_id)].append(ZaehlerOut.model_validate(z))
+
+        alle_mieter = (
+            db.query(Mieter)
+            .filter(Mieter.wohnung_id.in_(wohnung_ids))
+            .order_by(Mieter.einzug_datum, Mieter.id)
+            .all()
+        )
+        for m in alle_mieter:
+            mieter_by_wohnung[str(m.wohnung_id)].append(MieterOut.model_validate(m))
+
+        zaehler_ids = [z.id for z in alle_zaehler]
+        if zaehler_ids:
+            alle_staende = (
+                db.query(Zaehlerstand)
+                .filter(
+                    Zaehlerstand.zaehler_id.in_(zaehler_ids),
+                    Zaehlerstand.abrechnungsperiode_id == periode_id,
+                )
+                .order_by(Zaehlerstand.ablesedatum, Zaehlerstand.id)
+                .all()
+            )
+            staende_map: dict[int, list[Zaehlerstand]] = {zid: [] for zid in zaehler_ids}
+            for s in alle_staende:
+                staende_map[s.zaehler_id].append(s)
+
+            prev_end_map: dict[int, float] = {}
+            prev = (
+                db.query(Abrechnungsperiode)
+                .filter(
+                    Abrechnungsperiode.liegenschaft_id == periode.liegenschaft_id,
+                    Abrechnungsperiode.bis_datum < periode.von_datum,
+                )
+                .order_by(Abrechnungsperiode.bis_datum.desc())
+                .first()
+            )
+            if prev:
+                prev_staende = (
+                    db.query(Zaehlerstand)
+                    .filter(
+                        Zaehlerstand.zaehler_id.in_(zaehler_ids),
+                        Zaehlerstand.abrechnungsperiode_id == prev.id,
+                        Zaehlerstand.art == ART_PERIODE_ENDE,
+                    )
+                    .all()
+                )
+                for ps in prev_staende:
+                    prev_end_map[ps.zaehler_id] = ps.wert
+
+            for zid in zaehler_ids:
+                staende_by_zaehler[str(zid)] = _baue_zaehlerstaende_gruppe(
+                    staende_map[zid],
+                    periode,
+                    prev_end_map.get(zid),
+                )
+
+    overrides = (
+        db.query(WohnungVerbrauch)
+        .filter(WohnungVerbrauch.abrechnungsperiode_id == periode_id)
+        .all()
+    )
+
+    return ApiResponse(
+        ok=True,
+        data={
+            "wohnungen": [WohnungOut.model_validate(w) for w in wohnungen],
+            "zaehler_by_wohnung": zaehler_by_wohnung,
+            "mieter_by_wohnung": mieter_by_wohnung,
+            "staende_by_zaehler": staende_by_zaehler,
+            "wohnung_verbrauch": [WohnungVerbrauchOut.model_validate(o) for o in overrides],
+        },
+    )
+
+
 @router.get("/zaehler/{zaehler_id}/staende")
 def list_zaehlerstaende(
     zaehler_id: int, periode_id: int, db: Session = Depends(get_db)
@@ -77,26 +223,7 @@ def list_zaehlerstaende(
         .all()
     )
 
-    start_r = next((s for s in staende if s.art == ART_PERIODE_START), None)
-    ende_r = next((s for s in staende if s.art == ART_PERIODE_ENDE), None)
-    start_val = start_r.wert if start_r else None
-    ende_val = ende_r.wert if ende_r else None
-
     periode = db.get(Abrechnungsperiode, periode_id)
-
-    verbrauch: float | None = None
-    if start_r is not None and ende_r is not None:
-        if periode is not None:
-            verbrauch = _anteiliger_verbrauch(
-                start_r.wert,
-                date.fromisoformat(start_r.ablesedatum),
-                ende_r.wert,
-                date.fromisoformat(ende_r.ablesedatum),
-                date.fromisoformat(periode.von_datum),
-                date.fromisoformat(periode.bis_datum),
-            )
-        else:
-            verbrauch = round(ende_r.wert - start_r.wert, 4)
 
     # Look up previous period's end reading for this meter
     vorperiode_endwert: float | None = None
@@ -123,13 +250,7 @@ def list_zaehlerstaende(
             if prev_ende:
                 vorperiode_endwert = prev_ende.wert
 
-    gruppen = ZaehlerstaendeGruppe(
-        staende=[ZaehlerstandOut.model_validate(s) for s in staende],
-        verbrauch=verbrauch,
-        hat_start=start_val is not None,
-        hat_ende=ende_val is not None,
-        vorperiode_endwert=vorperiode_endwert,
-    )
+    gruppen = _baue_zaehlerstaende_gruppe(staende, periode, vorperiode_endwert)
     return ApiResponse(ok=True, data=gruppen)
 
 

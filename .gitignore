@@ -12,12 +12,19 @@ dist/
 .vite/
 
 # DB & Uploads (Daten, kein Code — separat sichern!)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
 backend/*.db
 backend/uploads/
 backup_safe/
+backups/
 
-# Generierte Abrechnungs-PDFs (echte Mieterdaten — nie committen)
+# Generierte Abrechnungs-PDFs & Office-Lockfiles (echte Mieterdaten — nie committen)
 abrechnungen_pdf/
+~$*
+.privacy-blocklist
 
 # Tooling caches
 .mypy_cache/

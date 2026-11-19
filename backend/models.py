@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
@@ -9,7 +9,7 @@ from domain import TRAEGER_MIETER
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().isoformat()
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 
 class Liegenschaft(Base):

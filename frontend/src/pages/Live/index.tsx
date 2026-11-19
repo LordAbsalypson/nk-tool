@@ -8,6 +8,7 @@ import { ZaehlerstaendeTab } from "./ZaehlerstaendeTab";
 import { VorauszahlungenTab } from "./VorauszahlungenTab";
 import { KostenartenTab } from "./KostenartenTab";
 import { AbrechnungTab } from "./AbrechnungTab";
+import { fmtDatumDe } from "../../utils/datum";
 
 const statusBadge = (status: string) => {
   if (status === "abgeschlossen") return <Badge variant="success">Abgeschlossen</Badge>;
@@ -28,6 +29,7 @@ interface Props {
    * denselben Mieter später wieder einen Sprung auslösen kann. */
   onVzFocusConsumed: () => void;
   onGoToVorauszahlung: (mieterId: number) => void;
+  onJumpToStage: (stage: 1 | 2 | 3 | 4 | 5, tab?: string) => void;
 }
 
 /** Gemeinsame Perioden-Auswahl für die Schritte Kostenarten → Zählerstände →
@@ -41,6 +43,7 @@ export default function Live({
   vzFocusMieterId,
   onVzFocusConsumed,
   onGoToVorauszahlung,
+  onJumpToStage,
 }: Props) {
   const [periodeId, setPeriodeId] = useState<number | null>(null);
 
@@ -61,7 +64,9 @@ export default function Live({
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0 flex-wrap">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Periode</span>
+        <label htmlFor="periode-select" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Periode
+        </label>
         {isLoading ? (
           <Spinner size="sm" />
         ) : perioden.length === 0 ? (
@@ -71,13 +76,14 @@ export default function Live({
         ) : (
           <div className="flex items-center gap-3 flex-wrap">
             <select
+              id="periode-select"
               className="input py-1 text-sm"
               value={periodeId ?? ""}
               onChange={(e) => setPeriodeId(Number(e.target.value))}
             >
               {perioden.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.bezeichnung} ({p.von_datum} – {p.bis_datum})
+                  {p.bezeichnung} ({fmtDatumDe(p.von_datum)} – {fmtDatumDe(p.bis_datum)})
                 </option>
               ))}
             </select>
@@ -117,6 +123,7 @@ export default function Live({
               liegenschaftName={liegenschaft.name}
               onError={onError}
               onGoToVorauszahlung={onGoToVorauszahlung}
+              onJumpToStage={onJumpToStage}
             />
           )}
         </div>

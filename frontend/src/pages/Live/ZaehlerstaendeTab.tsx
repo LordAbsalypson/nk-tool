@@ -22,8 +22,10 @@ import type {
 } from "../../types";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal, ConfirmModal } from "../../components/ui/Modal";
+import { DatePicker } from "../../components/ui/DatePicker";
 import { typLabels, typEinheit, HEIZUNG_TYPEN } from "../Stage1/zaehlerConstants";
 import { VerbrauchAufteilungInhalt } from "../../components/ui/VerbrauchAufteilung";
+import { HilfeBox } from "../../components/ui/HilfeBox";
 
 const artLabels: Record<ZaehlerstandArt, string> = {
   periode_start: "Periodenanfang",
@@ -87,6 +89,8 @@ function AblesungForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<z.input<typeof schema>, unknown, FormData>({
     resolver: zodResolver(schema),
@@ -99,13 +103,21 @@ function AblesungForm({
       ...initial,
     },
   });
+  const ablesedatumVal = watch("ablesedatum");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Ablesedatum *</label>
-          <input type="date" className="input" {...register("ablesedatum")} />
+          <DatePicker
+            className="input"
+            allowClear={false}
+            value={ablesedatumVal}
+            onValueChange={(iso) =>
+              setValue("ablesedatum", iso, { shouldDirty: true, shouldValidate: true })
+            }
+          />
           {errors.ablesedatum && <p className="error-msg">{errors.ablesedatum.message}</p>}
         </div>
         <div>
@@ -188,6 +200,8 @@ function VerbrauchZeile({
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["wohnung-verbrauch", periodeId] });
+      qc.invalidateQueries({ queryKey: ["zaehlerstaende-uebersicht", periodeId] });
+      qc.invalidateQueries({ queryKey: ["validierung", periodeId] });
       setEditing(false);
       onSaved();
     },
@@ -219,7 +233,7 @@ function VerbrauchZeile({
           if (e.key === "Escape") setEditing(false);
         }}
         placeholder="leer = zurück zur Berechnung"
-        className="w-full text-xs px-1 py-0.5 border border-yellow-400 rounded text-right"
+        className="w-full text-xs px-1 py-0.5 border border-indigo-400 rounded text-right"
       />
     );
   }
@@ -233,16 +247,16 @@ function VerbrauchZeile({
       }}
       className={`flex items-baseline justify-between w-full text-[11px] px-1 py-0.5 rounded border-t border-gray-100 mt-0.5 ${
         override !== null
-          ? "text-yellow-700 bg-yellow-50 hover:bg-yellow-100 font-semibold"
-          : "text-green-700 hover:bg-green-50 font-medium"
+          ? "text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-semibold"
+          : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-medium"
       }`}
       title={
         override !== null
           ? `Manuell eingetragen (aus den Ständen berechnet wären ${berechnet !== null ? fmt(berechnet) : "—"} ${einheit}). Klick zum Ändern — Feld leeren stellt die Berechnung wieder her.`
-          : "Verbrauch aus Anfang/Ende berechnet. Klick, um einen eigenen Wert einzutragen (z. B. Schätzung oder Rundung) — wird dann gelb markiert."
+          : "Verbrauch aus Anfang/Ende berechnet. Klick, um einen eigenen Wert einzutragen (z. B. Schätzung oder Rundung) — wird dann violett markiert."
       }
     >
-      <span className="text-gray-400 font-normal flex items-center gap-0.5">
+      <span className="text-slate-700 dark:text-slate-300 font-medium flex items-center gap-0.5">
         Verbrauch{override !== null && <PencilIcon className="w-2.5 h-2.5" />}
       </span>
       <span className="tabular-nums">
@@ -277,6 +291,7 @@ function MiniWert({
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["zaehlerstaende", zaehler.id, periodeId] });
+    qc.invalidateQueries({ queryKey: ["zaehlerstaende-uebersicht", periodeId] });
     qc.invalidateQueries({ queryKey: ["validierung", periodeId] });
   };
 
@@ -319,23 +334,30 @@ function MiniWert({
       <div
         className="flex flex-col items-end gap-0.5"
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) save();
+          const rel = e.relatedTarget as HTMLElement | null;
+          if (rel?.closest?.("[data-datepicker-popover]")) return;
+          if (!e.currentTarget.contains(rel)) save();
         }}
       >
-        <input
-          type="date"
-          autoFocus
-          value={datum}
-          onChange={(e) => setDatum(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setEditing(false);
-          }}
-          title="1. Ablesedatum — darf auch außerhalb der Periode liegen, der Verbrauch wird dann automatisch anteilig auf die Periode umgerechnet"
-          className="w-[110px] text-[10px] px-1 py-0.5 border border-blue-300 rounded"
-        />
+        <div className="w-[7.5rem]">
+          <DatePicker
+            compact
+            allowClear={false}
+            value={datum}
+            onValueChange={(iso) => {
+              if (iso) setDatum(iso);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditing(false);
+            }}
+            title="1. Ablesedatum — darf auch außerhalb der Periode liegen, der Verbrauch wird dann automatisch anteilig auf die Periode umgerechnet"
+            className="w-full text-xs px-1.5 py-0.5 border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          />
+        </div>
         <input
           type="number"
           step="0.001"
+          autoFocus
           value={wert}
           onChange={(e) => setWert(e.target.value)}
           onKeyDown={(e) => {
@@ -344,7 +366,7 @@ function MiniWert({
           }}
           placeholder="2. Zählerstand"
           title="2. Zählerstand — Enter oder Klick außerhalb speichert"
-          className="w-[110px] text-xs px-1 py-0.5 border border-blue-400 rounded text-right"
+          className="w-[7.5rem] text-xs px-1.5 py-0.5 border border-indigo-400 rounded text-right font-mono"
         />
       </div>
     );
@@ -353,18 +375,23 @@ function MiniWert({
   const kurz = art === "periode_start" ? "Anfang" : "Ende";
   return (
     <button
-      onClick={() => setEditing(true)}
-      className="flex items-baseline gap-1.5 w-full text-xs px-1 py-0.5 rounded hover:bg-amber-50"
+      type="button"
+      onClick={() => {
+        setWert(existing ? String(existing.wert) : "");
+        setDatum(existing?.ablesedatum ?? new Date().toISOString().slice(0, 10));
+        setEditing(true);
+      }}
+      className="flex items-baseline gap-1.5 w-full text-xs px-1 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
       title={existing ? `${artLabels[art]} — klicken zum Bearbeiten` : `${artLabels[art]} eintragen`}
     >
-      <span className="text-gray-400 w-[38px] shrink-0 text-left">{kurz}</span>
+      <span className="text-slate-700 dark:text-slate-300 font-medium w-12 shrink-0 text-left">{kurz}</span>
       {existing ? (
         <>
-          <span className="text-gray-400 tabular-nums">{fmtDatum(existing.ablesedatum)}</span>
-          <span className="text-gray-800 font-medium tabular-nums ml-auto">{fmt(existing.wert)}</span>
+          <span className="text-slate-600 dark:text-slate-300 tabular-nums">{fmtDatum(existing.ablesedatum)}</span>
+          <span className="text-slate-900 dark:text-slate-100 font-semibold tabular-nums ml-auto">{fmt(existing.wert)}</span>
         </>
       ) : (
-        <span className="text-orange-400 italic ml-auto">eintragen</span>
+        <span className="text-orange-600 dark:text-orange-400 font-medium italic ml-auto">eintragen</span>
       )}
     </button>
   );
@@ -430,6 +457,7 @@ function ZaehlerZelle({
           />
           {!hatStart && vorperiodeWert !== null && (
             <button
+              type="button"
               onClick={() =>
                 api
                   .post(`/zaehler/${z.id}/staende`, {
@@ -441,6 +469,8 @@ function ZaehlerZelle({
                   })
                   .then(() => {
                     qc.invalidateQueries({ queryKey: ["zaehlerstaende", z.id, periodeId] });
+                    qc.invalidateQueries({ queryKey: ["zaehlerstaende-uebersicht", periodeId] });
+                    qc.invalidateQueries({ queryKey: ["validierung", periodeId] });
                     onSaved();
                   })
                   .catch((e: Error) => onError(e.message))
@@ -454,6 +484,7 @@ function ZaehlerZelle({
 
         </div>
         <button
+          type="button"
           onClick={() => setDetailZaehler(z)}
           className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-0.5"
           title="Details, Zwischenablesungen, Notizen bearbeiten"
@@ -470,6 +501,8 @@ function ZaehlerZelle({
       {weitere.length > 0 && (
         <>
           <button
+            type="button"
+            aria-expanded={zeigeZweiten}
             onClick={() => setZeigeZweiten((v) => !v)}
             className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 mt-1"
           >
@@ -550,6 +583,7 @@ function ZaehlerDetailModal({
   const invalidate = () => {
     if (!zaehler) return;
     qc.invalidateQueries({ queryKey: ["zaehlerstaende", zaehler.id, periodeId] });
+    qc.invalidateQueries({ queryKey: ["zaehlerstaende-uebersicht", periodeId] });
     qc.invalidateQueries({ queryKey: ["validierung", periodeId] });
   };
 
@@ -647,12 +681,46 @@ function ZaehlerDetailModal({
   );
 }
 
+interface ZaehlerstaendeUebersicht {
+  wohnungen: Wohnung[];
+  zaehler_by_wohnung: Record<string, Zaehler[]>;
+  mieter_by_wohnung: Record<string, Mieter[]>;
+  staende_by_zaehler: Record<string, ZaehlerstaendeGruppe>;
+  wohnung_verbrauch: { wohnung_id: number; zaehler_typ: string; wert: number }[];
+}
+
 export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError }: Props) {
+  const qc = useQueryClient();
   const [aufteilungOffen, setAufteilungOffen] = useState<Record<number, boolean>>({});
+
+  // Ein einziger Sammel-Request lädt alle Wohnungen, Zähler, Mieter, Stände und
+  // Verbrauchs-Overrides gebündelt und füllt den React-Query-Cache vor, sodass die
+  // bestehenden Einzel-Query-Keys beim Bearbeiten/Invalidieren unverändert weiterarbeiten.
+  const uebersichtQuery = useQuery({
+    queryKey: ["zaehlerstaende-uebersicht", periodeId],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const data = await api.get<ZaehlerstaendeUebersicht>(
+        `/perioden/${periodeId}/zaehlerstaende-uebersicht`
+      );
+      qc.setQueryData(["wohnungen", liegenschaftId], data.wohnungen);
+      for (const w of data.wohnungen) {
+        qc.setQueryData(["zaehler", w.id], data.zaehler_by_wohnung[String(w.id)] ?? []);
+        qc.setQueryData(["mieter", w.id], data.mieter_by_wohnung[String(w.id)] ?? []);
+      }
+      for (const [zid, gruppe] of Object.entries(data.staende_by_zaehler)) {
+        qc.setQueryData(["zaehlerstaende", Number(zid), periodeId], gruppe);
+      }
+      qc.setQueryData(["wohnung-verbrauch", periodeId], data.wohnung_verbrauch);
+      return data;
+    },
+  });
 
   const { data: wohnungen = [], isLoading: laW } = useQuery({
     queryKey: ["wohnungen", liegenschaftId],
     queryFn: () => api.get<Wohnung[]>(`/liegenschaften/${liegenschaftId}/wohnungen`),
+    enabled: uebersichtQuery.isSuccess,
+    staleTime: 30_000,
     select: (d) => d.filter((w) => w.aktiv).sort((a, b) => whgNummer(a.bezeichnung) - whgNummer(b.bezeichnung)),
   });
 
@@ -660,7 +728,8 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
     queries: wohnungen.map((w) => ({
       queryKey: ["zaehler", w.id],
       queryFn: () => api.get<Zaehler[]>(`/wohnungen/${w.id}/zaehler`),
-      enabled: wohnungen.length > 0,
+      enabled: uebersichtQuery.isSuccess && wohnungen.length > 0,
+      staleTime: 30_000,
     })),
   });
 
@@ -675,16 +744,19 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
     queries: wohnungen.map((w) => ({
       queryKey: ["mieter", w.id],
       queryFn: () => api.get<Mieter[]>(`/wohnungen/${w.id}/mieter`),
-      enabled: wohnungen.length > 0,
+      enabled: uebersichtQuery.isSuccess && wohnungen.length > 0,
+      staleTime: 30_000,
     })),
   });
   const mieterAnzahl: Record<number, number> = {};
+  const hatUnterjaehrigenAuszug: Record<number, boolean> = {};
   const mieterNamen: Record<number, string> = {};
   wohnungen.forEach((w, i) => {
     const ml = ((mieterQueries[i].data as Mieter[] | undefined) ?? []).filter(
       (m) => !m.ist_leerstand
     );
     mieterAnzahl[w.id] = ml.length;
+    hatUnterjaehrigenAuszug[w.id] = ml.some((m) => Boolean(m.auszug_datum));
     // Bei Mieterwechsel chronologisch: "Alt → Neu"
     mieterNamen[w.id] = [...ml]
       .sort((a, b) => a.einzug_datum.localeCompare(b.einzug_datum))
@@ -699,6 +771,8 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
       api.get<{ wohnung_id: number; zaehler_typ: string; wert: number }[]>(
         `/perioden/${periodeId}/wohnung-verbrauch`
       ),
+    enabled: uebersichtQuery.isSuccess,
+    staleTime: 30_000,
   });
   const overrideMap: Record<string, number> = {};
   verbrauchOverrides.forEach((o) => {
@@ -709,7 +783,8 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
     queries: allZaehler.map((zaehler) => ({
       queryKey: ["zaehlerstaende", zaehler.id, periodeId],
       queryFn: () => api.get<ZaehlerstaendeGruppe>(`/zaehler/${zaehler.id}/staende?periode_id=${periodeId}`),
-      enabled: allZaehler.length > 0,
+      enabled: uebersichtQuery.isSuccess && allZaehler.length > 0,
+      staleTime: 30_000,
     })),
   });
 
@@ -719,7 +794,7 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
     if (g) staendeByZaehlerId[zaehler.id] = g;
   });
 
-  if (laW || zaehlerQueries.some((q) => q.isLoading))
+  if (uebersichtQuery.isLoading || laW || zaehlerQueries.some((q) => q.isLoading))
     return (
       <div className="flex justify-center py-12">
         <Spinner />
@@ -734,12 +809,11 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
 
   return (
     <div>
-      <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 space-y-1">
-        <p className="font-semibold">Wie funktioniert diese Tabelle?</p>
+      <HilfeBox id="zaehlerstaende" titel="Wie funktioniert diese Tabelle?">
         <p>
           Jede Zelle zeigt <strong>Anfang</strong> und <strong>Ende</strong> mit Datum und Zählerstand —
-          klicken zum Bearbeiten. Darunter der <strong className="text-green-700">Verbrauch</strong>:
-          grün = aus den Ständen berechnet, <strong className="text-yellow-700">gelb</strong> = von Hand
+          klicken zum Bearbeiten. Darunter der <strong className="text-emerald-700 dark:text-emerald-400">Verbrauch</strong>:
+          grün = aus den Ständen berechnet, <strong className="text-indigo-700 dark:text-indigo-300">violett</strong> = von Hand
           eingetragen (z. B. Schätzung) — anklicken zum Anpassen, Feld leeren stellt die Berechnung
           wieder her. Orange „eintragen" = noch offen.
         </p>
@@ -753,7 +827,7 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
           Zähler" lässt sich der alte/ersetzte Zähler aufklappen. Das „…"-Icon öffnet Zwischenablesungen,
           Notizen und Löschen.
         </p>
-      </div>
+      </HilfeBox>
 
       <div className="overflow-x-auto">
         <table className="text-xs w-full border-collapse">
@@ -771,26 +845,28 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
             {wohnungen.map((w, wi) => {
               const zaehlerFuerWohnung = (zaehlerQueries[wi].data as Zaehler[] | undefined) ?? [];
               const mehrereMieter = (mieterAnzahl[w.id] ?? 0) > 1;
-              const offen = mehrereMieter && !!aufteilungOffen[w.id];
+              const zeigeMieterVerbrauchOption =
+                mehrereMieter || ((mieterAnzahl[w.id] ?? 0) === 1 && !!hatUnterjaehrigenAuszug[w.id]);
+              const offen = zeigeMieterVerbrauchOption && !!aufteilungOffen[w.id];
               return (
                 <Fragment key={w.id}>
                   <tr className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="py-2 pr-3">
-                      <div className="font-medium text-gray-700">{w.bezeichnung}</div>
+                      <div className="font-semibold text-slate-900 dark:text-slate-100">{w.bezeichnung}</div>
                       {mieterNamen[w.id] && (
                         <div
-                          className="text-[10px] text-gray-400 max-w-[130px] truncate"
+                          className="text-xs text-slate-700 dark:text-slate-300 font-medium max-w-[140px] truncate"
                           title={mieterNamen[w.id]}
                         >
                           {mieterNamen[w.id]}
                         </div>
                       )}
-                      {mehrereMieter && (
+                      {zeigeMieterVerbrauchOption && (
                         <>
-                          <span className="inline-block mt-0.5 text-[9px] bg-blue-50 text-blue-600 border border-blue-200 px-1 py-px rounded">
-                            Mieterwechsel
+                          <span className="inline-block mt-0.5 text-[9px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-px rounded">
+                            {mehrereMieter ? "Mieterwechsel" : "Auszug"}
                           </span>
-                          <label className="flex items-center gap-1 mt-1 text-[10px] text-blue-600 cursor-pointer">
+                          <label className="flex items-center gap-1 mt-1 text-[10px] text-indigo-600 dark:text-indigo-400 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={offen}
@@ -815,7 +891,7 @@ export function ZaehlerstaendeTab({ periodeId, liegenschaftId, onSaved, onError 
                             wohnungId={w.id}
                             override={
                               passend.length > 0
-                                ? overrideMap[`${w.id}:${passend.sort((a, b) => Number(b.aktiv) - Number(a.aktiv))[0].typ}`] ?? null
+                                ? overrideMap[`${w.id}:${[...passend].sort((a, b) => Number(b.aktiv) - Number(a.aktiv))[0].typ}`] ?? null
                                 : null
                             }
                             onSaved={onSaved}

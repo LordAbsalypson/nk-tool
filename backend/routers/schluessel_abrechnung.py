@@ -2,7 +2,8 @@
 berechnen und als PDF exportieren. Siehe ``schluessel_engine.py``."""
 
 import os
-from datetime import date
+import zipfile
+from datetime import date, datetime
 from pathlib import Path
 
 from urllib.parse import quote
@@ -197,11 +198,53 @@ def _dateiname(name: str) -> str:
 
 
 def _hausnummer(adresse: str) -> str:
-    """Letztes Token der Adresse, in der Praxis die Hausnummer (z. B. "15" oder
-    "15A" bei "Jeversche Str. 15A") — für Dateinamen, die Wohnungen mehrerer
+    """Letztes Token der Adresse, in der Praxis die Hausnummer (z. B. "12" oder
+    "12A" bei "Musterstraße 12A") — für Dateinamen, die Wohnungen mehrerer
     Häuser derselben Straße unterscheidbar machen sollen."""
     teile = adresse.strip().split()
     return teile[-1] if teile else ""
+
+
+def _erzeuge_einzel_mieter_pdf(
+    periode: Abrechnungsperiode,
+    lieg: Liegenschaft,
+    vorlage: PdfVorlage | None,
+    erg: SchluesselMieterErgebnis,
+    optionen: PdfAbschnitteOptionen,
+    dateiname_override: str | None = None,
+) -> tuple[str, Path]:
+    """Erstellt die Einzel-PDF für einen berechenbaren Mieter und gibt
+    ``(dateiname, pfad)`` zurück. Gemeinsamer Helfer für Einzel-Export und
+    ZIP-Sammel-Export."""
+    daten = AbrechnungPdfDaten(
+        **basis_pdf_kwargs(vorlage, lieg, optionen),
+        empfaenger_name=erg.anzeigename,
+        empfaenger_strasse=f"{lieg.adresse}, {erg.wohnung_bezeichnung}",
+        empfaenger_ort=f"{lieg.plz} {lieg.ort}",
+        zeitraum_von=fmt_datum_de(periode.von_datum),
+        zeitraum_bis=fmt_datum_de(periode.bis_datum),
+        wohnung=erg.wohnung_bezeichnung,
+        zeilen=[
+            AbrechnungZeile(z.kostenart, z.grundlage, z.betrag) for z in erg.zeilen
+        ],
+        vorauszahlung=erg.vorauszahlung_ist,
+        hinweis=(
+            f"Mietzeitraum in dieser Abrechnung: {fmt_datum_de(erg.miet_von)} – "
+            f"{fmt_datum_de(erg.miet_bis)} ({erg.miettage} von {erg.periode_tage} Tagen)."
+            if erg.miettage != erg.periode_tage
+            else None
+        ),
+    )
+
+    ordner_name = periode.bezeichnung.replace("/", "-")
+    basis_dateiname = (
+        f"{_dateiname(_hausnummer(lieg.adresse))}_{_dateiname(erg.wohnung_bezeichnung)}"
+        f"_{_dateiname(erg.anzeigename)}.pdf"
+    )
+    dateiname = dateiname_override or basis_dateiname
+    ziel = PDF_DIR / ordner_name / dateiname
+    erzeuge_abrechnung_pdf(daten, ziel)
+    return dateiname, ziel
 
 
 @router.post("/perioden/{periode_id}/mieter/{mieter_id}/schluessel-abrechnung/pdf")
@@ -228,33 +271,8 @@ def erzeuge_schluessel_pdf(
         )
 
     vorlage = db.query(PdfVorlage).first()
-
-    daten = AbrechnungPdfDaten(
-        **basis_pdf_kwargs(vorlage, lieg, optionen),
-        empfaenger_name=erg.anzeigename,
-        empfaenger_strasse=f"{lieg.adresse}, {erg.wohnung_bezeichnung}",
-        empfaenger_ort=f"{lieg.plz} {lieg.ort}",
-        zeitraum_von=fmt_datum_de(periode.von_datum),
-        zeitraum_bis=fmt_datum_de(periode.bis_datum),
-        wohnung=erg.wohnung_bezeichnung,
-        zeilen=[
-            AbrechnungZeile(z.kostenart, z.grundlage, z.betrag) for z in erg.zeilen
-        ],
-        vorauszahlung=erg.vorauszahlung_ist,
-        hinweis=(
-            f"Mietzeitraum in dieser Abrechnung: {fmt_datum_de(erg.miet_von)} – "
-            f"{fmt_datum_de(erg.miet_bis)} ({erg.miettage} von {erg.periode_tage} Tagen)."
-            if erg.miettage != erg.periode_tage
-            else None
-        ),
-    )
-
     ordner_name = periode.bezeichnung.replace("/", "-")
-    dateiname = (
-        f"{_dateiname(_hausnummer(lieg.adresse))}_{_dateiname(erg.wohnung_bezeichnung)}"
-        f"_{_dateiname(erg.anzeigename)}.pdf"
-    )
-    erzeuge_abrechnung_pdf(daten, PDF_DIR / ordner_name / dateiname)
+    dateiname, _ = _erzeuge_einzel_mieter_pdf(periode, lieg, vorlage, erg, optionen)
 
     return ApiResponse(
         ok=True,
@@ -264,6 +282,159 @@ def erzeuge_schluessel_pdf(
             f"?ordner={quote(ordner_name)}&datei={quote(dateiname)}",
         },
     )
+
+
+@router.post("/perioden/{periode_id}/schluessel-abrechnung/pdf-alle")
+def erzeuge_alle_schluessel_pdfs_zip(
+    periode_id: int,
+    optionen: PdfAbschnitteOptionen = PdfAbschnitteOptionen(),
+    db: Session = Depends(get_db),
+) -> ApiResponse:
+    """Erstellt die Einzel-Abrechnungen aller berechenbaren Mieter der Periode
+    (mit derselben Logik und den PDF-Abschnitten wie ``erzeuge_schluessel_pdf``)
+    und packt sie in ein ZIP-Archiv. Unvollständige Mieter werden übersprungen
+    und in ``uebersprungen`` gemeldet."""
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+    lieg = db.get(Liegenschaft, periode.liegenschaft_id)
+    if not lieg:
+        raise HTTPException(status_code=404, detail="Liegenschaft nicht gefunden")
+
+    try:
+        ergebnisse = berechne_schluessel_periode(db, periode_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    berechenbare = [e for e in ergebnisse if e.berechenbar]
+    uebersprungen = [
+        {
+            "mieter_id": e.mieter_id,
+            "anzeigename": e.anzeigename,
+            "wohnung_bezeichnung": e.wohnung_bezeichnung,
+            "fehlende_daten": e.fehlende_daten,
+        }
+        for e in ergebnisse
+        if not e.berechenbar
+    ]
+    if not berechenbare:
+        raise HTTPException(status_code=400, detail="Keine berechenbaren Mieter in dieser Periode")
+
+    vorlage = db.query(PdfVorlage).first()
+    ordner_name = periode.bezeichnung.replace("/", "-")
+    zip_dateiname = f"Abrechnungen_{_dateiname(lieg.name)}_{_dateiname(ordner_name)}.zip"
+    zip_pfad = PDF_DIR / ordner_name / zip_dateiname
+    zip_pfad.parent.mkdir(parents=True, exist_ok=True)
+
+    # Atomarer Aufbau im selben Verzeichnis via Tempdatei, damit kein halbfertiges
+    # ZIP liegen bleibt, falls eine einzelne PDF fehlschlägt.
+    tmp_zip_pfad = zip_pfad.with_suffix(".zip.tmp")
+    vergebene_namen: dict[str, int] = {}
+    try:
+        with zipfile.ZipFile(tmp_zip_pfad, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for erg in berechenbare:
+                basis_name = (
+                    f"{_dateiname(_hausnummer(lieg.adresse))}_{_dateiname(erg.wohnung_bezeichnung)}"
+                    f"_{_dateiname(erg.anzeigename)}.pdf"
+                )
+                count = vergebene_namen.get(basis_name, 0) + 1
+                vergebene_namen[basis_name] = count
+                arcname = (
+                    basis_name
+                    if count == 1
+                    else f"{Path(basis_name).stem}_{count}{Path(basis_name).suffix}"
+                )
+                _, pfad = _erzeuge_einzel_mieter_pdf(
+                    periode, lieg, vorlage, erg, optionen, dateiname_override=arcname
+                )
+                zf.write(pfad, arcname=arcname)
+        tmp_zip_pfad.replace(zip_pfad)
+    except Exception:
+        tmp_zip_pfad.unlink(missing_ok=True)
+        raise
+
+    return ApiResponse(
+        ok=True,
+        data={
+            "dateiname": zip_dateiname,
+            "download_url": f"/api/v1/perioden/{periode_id}/schluessel-abrechnung/pdf-alle/download"
+            f"?ordner={quote(ordner_name)}&datei={quote(zip_dateiname)}",
+            "anzahl": len(berechenbare),
+            "uebersprungen": uebersprungen,
+        },
+    )
+
+
+@router.get("/perioden/{periode_id}/schluessel-abrechnung/pdf-alle/download")
+def lade_alle_schluessel_pdfs_zip(periode_id: int, ordner: str, datei: str) -> FileResponse:
+    pfad = (PDF_DIR / ordner / datei).resolve()
+    if PDF_DIR.resolve() not in pfad.parents or not pfad.is_file():
+        raise HTTPException(status_code=404, detail="ZIP-Archiv nicht gefunden — bitte erst erstellen")
+    return FileResponse(pfad, media_type="application/zip", filename=pfad.name)
+
+
+@router.get("/perioden/{periode_id}/pdf-archiv")
+def list_pdf_archiv(periode_id: int, db: Session = Depends(get_db)) -> ApiResponse:
+    """Listet alle bereits generierten PDFs und ZIP-Archive dieser Periode
+    aus ``PDF_DIR / <ordner_name>`` mit Zeitstempel, Dateigröße und Download-/Vorschau-URL."""
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+    ordner_name = periode.bezeichnung.replace("/", "-")
+    verzeichnis = (PDF_DIR / ordner_name).resolve()
+    if PDF_DIR.resolve() not in verzeichnis.parents or not verzeichnis.is_dir():
+        return ApiResponse(ok=True, data=[])
+
+    eintraege = []
+    for f in verzeichnis.iterdir():
+        if not f.is_file() or f.name.startswith(".") or f.suffix.lower() not in (".pdf", ".zip"):
+            continue
+        stat = f.stat()
+        dt = datetime.fromtimestamp(stat.st_mtime)
+        ist_zip = f.suffix.lower() == ".zip"
+        dl_url = (
+            f"/api/v1/perioden/{periode_id}/schluessel-abrechnung/pdf-alle/download"
+            f"?ordner={quote(ordner_name)}&datei={quote(f.name)}"
+            if ist_zip
+            else f"/api/v1/perioden/{periode_id}/sammelabrechnung/pdf/download"
+            f"?ordner={quote(ordner_name)}&datei={quote(f.name)}"
+        )
+        eintraege.append(
+            {
+                "dateiname": f.name,
+                "ordner": ordner_name,
+                "typ": "zip" if ist_zip else "pdf",
+                "groesse_bytes": stat.st_size,
+                "erstellt_am_iso": dt.isoformat(timespec="seconds"),
+                "erstellt_am_de": dt.strftime("%d.%m.%Y, %H:%M Uhr"),
+                "download_url": dl_url,
+            }
+        )
+
+    eintraege.sort(key=lambda x: str(x["erstellt_am_iso"]), reverse=True)
+    return ApiResponse(ok=True, data=eintraege)
+
+
+@router.delete("/perioden/{periode_id}/pdf-archiv")
+def delete_pdf_archiv_datei(
+    periode_id: int,
+    dateiname: str | None = None,
+    datei: str | None = None,
+    db: Session = Depends(get_db),
+) -> ApiResponse:
+    """Löscht eine einzelne generierte PDF- oder ZIP-Datei aus dem Perioden-Archiv."""
+    ziel_datei = dateiname or datei
+    if not ziel_datei:
+        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+    periode = db.get(Abrechnungsperiode, periode_id)
+    if not periode:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+    ordner_name = periode.bezeichnung.replace("/", "-")
+    pfad = (PDF_DIR / ordner_name / ziel_datei).resolve()
+    if PDF_DIR.resolve() not in pfad.parents or not pfad.is_file():
+        raise HTTPException(status_code=404, detail="Datei im Archiv nicht gefunden")
+    pfad.unlink(missing_ok=True)
+    return ApiResponse(ok=True, data={"geloescht": ziel_datei})
 
 
 @router.post("/perioden/{periode_id}/mieter-kombiniert/pdf")
@@ -733,6 +904,104 @@ def list_direkt_kostenarten_werte(periode_id: int, db: Session = Depends(get_db)
         .all()
     )
     return ApiResponse(ok=True, data=[DirektKostenartWertOut.model_validate(r) for r in rows])
+
+
+@router.post("/perioden/{periode_id}/direkt-kostenarten-werte/aus-vorperiode")
+def uebernehme_direkt_kostenarten_werte_aus_vorperiode(
+    periode_id: int, db: Session = Depends(get_db)
+) -> ApiResponse:
+    """Kopiert die €-Sätze (``DirektKostenartWert``) aus der jüngsten Vorperiode in
+    ``periode_id`` (überschreibt bzw. ergänzt alle Kostenart-Sätze).
+
+    Gedacht für unterjährige Mieter-Auszüge in einer neuen Periode, wenn noch keine
+    neue Gas-/Strom-Jahresabrechnung vorliegt und mit den letzten bekannten
+    Einheitspreisen (€/kWh, €/m³, €/m²) abgerechnet werden soll.
+    """
+    ziel = db.get(Abrechnungsperiode, periode_id)
+    if not ziel:
+        raise HTTPException(status_code=404, detail="Periode nicht gefunden")
+
+    kandidaten = (
+        db.query(Abrechnungsperiode)
+        .filter(
+            Abrechnungsperiode.id != ziel.id,
+            Abrechnungsperiode.liegenschaft_id == ziel.liegenschaft_id,
+            Abrechnungsperiode.von_datum <= ziel.von_datum,
+        )
+        .order_by(Abrechnungsperiode.von_datum.desc(), Abrechnungsperiode.id.desc())
+        .all()
+    )
+    if not kandidaten:
+        kandidaten = (
+            db.query(Abrechnungsperiode)
+            .filter(Abrechnungsperiode.id != ziel.id)
+            .order_by(Abrechnungsperiode.von_datum.desc(), Abrechnungsperiode.id.desc())
+            .all()
+        )
+
+    quell_periode: Abrechnungsperiode | None = None
+    quell_werte: list[DirektKostenartWert] = []
+    for kand in kandidaten:
+        rows = (
+            db.query(DirektKostenartWert)
+            .filter(DirektKostenartWert.abrechnungsperiode_id == kand.id)
+            .all()
+        )
+        if rows:
+            quell_periode = kand
+            quell_werte = rows
+            break
+
+    if not quell_periode or not quell_werte:
+        raise HTTPException(
+            status_code=400,
+            detail="Keine Vorperiode mit hinterlegten Kostenart-Sätzen gefunden",
+        )
+
+    vorhandene_map = {
+        r.kostenart_id: r
+        for r in db.query(DirektKostenartWert)
+        .filter(DirektKostenartWert.abrechnungsperiode_id == ziel.id)
+        .all()
+    }
+    uebernommen = 0
+    for w in quell_werte:
+        existing = vorhandene_map.get(w.kostenart_id)
+        if existing:
+            existing.preis_pro_einheit = w.preis_pro_einheit
+            existing.verhaeltnis_grund = w.verhaeltnis_grund
+            existing.preis_grund_pro_m2 = w.preis_grund_pro_m2
+            existing.preis_verbrauch_pro_einheit = w.preis_verbrauch_pro_einheit
+            existing.saetze_manuell_angepasst = w.saetze_manuell_angepasst
+        else:
+            db.add(
+                DirektKostenartWert(
+                    abrechnungsperiode_id=ziel.id,
+                    kostenart_id=w.kostenart_id,
+                    preis_pro_einheit=w.preis_pro_einheit,
+                    verhaeltnis_grund=w.verhaeltnis_grund,
+                    preis_grund_pro_m2=w.preis_grund_pro_m2,
+                    preis_verbrauch_pro_einheit=w.preis_verbrauch_pro_einheit,
+                    saetze_manuell_angepasst=w.saetze_manuell_angepasst,
+                )
+            )
+        uebernommen += 1
+
+    db.commit()
+    aktuelle = (
+        db.query(DirektKostenartWert)
+        .filter(DirektKostenartWert.abrechnungsperiode_id == ziel.id)
+        .all()
+    )
+    return ApiResponse(
+        ok=True,
+        data={
+            "uebernommen": uebernommen,
+            "quell_periode_id": quell_periode.id,
+            "quell_periode_bezeichnung": quell_periode.bezeichnung,
+            "werte": [DirektKostenartWertOut.model_validate(r) for r in aktuelle],
+        },
+    )
 
 
 def _speichere_kostenart_wert(db: Session, periode_id: int, kostenart_id: int, body: DirektKostenartWertSet) -> None:

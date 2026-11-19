@@ -14,12 +14,22 @@ block_cipher = None
 
 BACKEND_DIR = os.path.join(SPECPATH, "..", "backend")
 FRONTEND_DIST = os.path.join(SPECPATH, "..", "frontend", "dist")
+REPO_ROOT = os.path.join(SPECPATH, "..")
+VERSION_FILE = os.path.join(REPO_ROOT, "VERSION")
+APP_VERSION = (
+    open(VERSION_FILE, encoding="utf-8").read().strip()
+    if os.path.isfile(VERSION_FILE)
+    else "1.3.0"
+)
 
 a = Analysis(
     ["app.py"],
     pathex=[BACKEND_DIR],
     binaries=[],
-    datas=[],
+    datas=[
+        (os.path.join(REPO_ROOT, "VERSION"), "."),
+        (os.path.join(REPO_ROOT, "CHANGELOG.md"), "."),
+    ],
     hiddenimports=[
         # uvicorn wählt Loop/Protokoll-Implementierung zur Laufzeit dynamisch aus
         # (uvloop/httptools sind hier nicht installiert -> reiner asyncio/h11-Pfad,
@@ -88,7 +98,7 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "NK-Tool",
         "CFBundleDisplayName": "NK-Tool",
-        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleShortVersionString": APP_VERSION,
         "NSHighResolutionCapable": True,
     },
 )

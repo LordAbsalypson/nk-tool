@@ -72,7 +72,17 @@ with engine.connect() as _conn:
                     "Startup-Migration fehlgeschlagen (%s): %s", _stmt, _exc
                 )
 
-app = FastAPI(title="NK-Tool API", version="1.0.0")
+from pathlib import Path as _Path
+
+_REPO_ROOT = _Path(__file__).resolve().parent.parent
+_VERSION_FILE = _REPO_ROOT / "VERSION"
+APP_VERSION = (
+    _VERSION_FILE.read_text(encoding="utf-8").strip()
+    if _VERSION_FILE.is_file()
+    else "1.3.0"
+)
+
+app = FastAPI(title="NK-Tool API", version=APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -147,4 +157,22 @@ app.include_router(pdf_vorlage.router, prefix=PREFIX, dependencies=_protected)
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "status": "running"}
+    return {"ok": True, "status": "running", "version": APP_VERSION}
+
+
+@app.get(f"{PREFIX}/version")
+def get_version_info() -> dict[str, Any]:
+    """Liefert die aktuelle App-Version aus `VERSION` sowie das Changelog aus `CHANGELOG.md`."""
+    changelog_path = _REPO_ROOT / "CHANGELOG.md"
+    changelog = (
+        changelog_path.read_text(encoding="utf-8")
+        if changelog_path.is_file()
+        else ""
+    )
+    return {
+        "ok": True,
+        "data": {
+            "version": APP_VERSION,
+            "changelog": changelog,
+        },
+    }

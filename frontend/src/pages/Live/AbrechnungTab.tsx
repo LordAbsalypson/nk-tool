@@ -1,13 +1,22 @@
 import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDownIcon, ChevronUpIcon, BeakerIcon, PencilIcon } from "@heroicons/react/24/outline";
+import {
+  ArchiveBoxIcon,
+  ArrowDownTrayIcon,
+  BeakerIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PencilIcon,
+} from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import type { SchluesselMieter } from "../../types";
 import { Spinner } from "../../components/ui/Spinner";
 import { AusprobierenModal } from "../../components/ui/AusprobierenModal";
 import { PersonenSplitModal } from "../../components/ui/PersonenSplitModal";
 import { SammelabrechnungModal } from "../../components/ui/SammelabrechnungModal";
-import { PdfPreviewModal } from "../../components/ui/PdfPreviewModal";
+import { PdfArchivDrawer, type PdfArchivEintrag } from "../../components/ui/PdfArchivDrawer";
+import { PruefungPanel } from "../../components/ui/PruefungPanel";
+import { DatePicker } from "../../components/ui/DatePicker";
 import { useToast } from "../../hooks/useToast";
 
 export interface PdfAbschnitte {
@@ -78,6 +87,7 @@ function MieterZeile({
   abschnitte,
   segmentAnzahl,
   onGoToVorauszahlung,
+  onOpenArchiv,
 }: {
   m: SchluesselMieter;
   periodeId: number;
@@ -88,6 +98,7 @@ function MieterZeile({
   abschnitte: PdfAbschnitte;
   segmentAnzahl: number;
   onGoToVorauszahlung: (mieterId: number) => void;
+  onOpenArchiv: (dateiname: string) => void;
 }) {
   const [offen, setOffen] = useState(false);
   const [nameBearbeiten, setNameBearbeiten] = useState(false);
@@ -97,7 +108,6 @@ function MieterZeile({
   const [verbrauchEntwurf, setVerbrauchEntwurf] = useState("");
   const [verbrauchVorschau, setVerbrauchVorschau] = useState<SchluesselMieter | null>(null);
   const [verbrauchVorschauLoading, setVerbrauchVorschauLoading] = useState(false);
-  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
   const { addToast } = useToast();
   const qc = useQueryClient();
 
@@ -125,7 +135,7 @@ function MieterZeile({
           `/perioden/${periodeId}/mieter/${m.mieter_id}/schluessel-abrechnung/vorschau`,
           {
             verbrauch_overrides: [
-              segmentAnzahl > 1
+              segmentAnzahl > 1 || m.miettage < m.periode_tage
                 ? { mieter_id: m.mieter_id, zaehler_typ: zeile.zaehler_typ, wert }
                 : { wohnung_id: m.wohnung_id, zaehler_typ: zeile.zaehler_typ, wert },
             ],
@@ -145,7 +155,7 @@ function MieterZeile({
       if (!zeile?.zaehler_typ) return;
       const wert = parseFloat(verbrauchEntwurf.replace(",", "."));
       if (isNaN(wert)) return;
-      if (segmentAnzahl > 1) {
+      if (segmentAnzahl > 1 || m.miettage < m.periode_tage) {
         await api.put(`/perioden/${periodeId}/mieter/${m.mieter_id}/verbrauch-override`, {
           zaehler_typ: zeile.zaehler_typ,
           wert,
@@ -173,7 +183,8 @@ function MieterZeile({
         abschnitte
       ),
     onSuccess: (d) => {
-      setPdfPreview({ url: d.download_url, dateiname: d.dateiname });
+      qc.invalidateQueries({ queryKey: ["pdf-archiv", periodeId] });
+      onOpenArchiv(d.dateiname);
     },
     onError: (e: Error) => onError(e.message),
   });
@@ -191,17 +202,19 @@ function MieterZeile({
 
   const guthaben = m.saldo >= 0;
 
+  const toggleRow = () => {
+    if (kombiModus) {
+      if (m.berechenbar) onKombiToggle();
+      return;
+    }
+    setOffen((o) => !o);
+  };
+
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      <button
-        onClick={() => {
-          if (kombiModus) {
-            if (m.berechenbar) onKombiToggle();
-            return;
-          }
-          setOffen((o) => !o);
-        }}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left"
+      <div
+        onClick={toggleRow}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left cursor-pointer"
       >
         <div className="flex items-center gap-3 min-w-0">
           {kombiModus && (
@@ -253,21 +266,33 @@ function MieterZeile({
               </button>
             </div>
           ) : (
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5 group">
-              {m.anzeigename} <span className="text-xs font-normal text-gray-400">{m.wohnung_bezeichnung}</span>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5 group">
+              <button
+                type="button"
+                aria-expanded={offen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRow();
+                }}
+                className="text-left font-medium text-gray-800 dark:text-gray-100 flex items-center gap-1.5"
+              >
+                <span>{m.anzeigename}</span>
+                <span className="text-xs font-normal text-gray-400">{m.wohnung_bezeichnung}</span>
+              </button>
               <button
                 type="button"
                 title="Namen bearbeiten"
+                aria-label={`Namen von ${m.anzeigename} bearbeiten`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setNameEntwurf(m.anzeigename);
                   setNameBearbeiten(true);
                 }}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-opacity"
               >
                 <PencilIcon className="w-3 h-3" />
               </button>
-            </p>
+            </div>
           )}
           {m.miettage !== m.periode_tage && (
             <p className="text-[10px] text-blue-600">
@@ -289,11 +314,11 @@ function MieterZeile({
               unvollständig
             </span>
           )}
-          <span className="text-gray-400">
+          <span className="text-gray-400" aria-hidden="true">
             {offen ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
           </span>
         </div>
-      </button>
+      </div>
 
       {offen && (
         <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700">
@@ -450,16 +475,6 @@ function MieterZeile({
           onError={onError}
         />
       )}
-
-      {pdfPreview && (
-        <PdfPreviewModal
-          downloadUrl={pdfPreview.url}
-          dateiname={pdfPreview.dateiname}
-          onClose={() => setPdfPreview(null)}
-          onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
-          onError={onError}
-        />
-      )}
     </div>
   );
 }
@@ -469,9 +484,16 @@ interface Props {
   liegenschaftName: string;
   onError: (msg: string) => void;
   onGoToVorauszahlung: (mieterId: number) => void;
+  onJumpToStage: (stage: 1 | 2 | 3 | 4 | 5, tab?: string) => void;
 }
 
-export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVorauszahlung }: Props) {
+export function AbrechnungTab({
+  periodeId,
+  liegenschaftName,
+  onError,
+  onGoToVorauszahlung,
+  onJumpToStage,
+}: Props) {
   const { addToast } = useToast();
   const qc = useQueryClient();
   const [kombiModus, setKombiModus] = useState(false);
@@ -489,7 +511,13 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
       // localStorage nicht verfügbar (z. B. privater Modus) — Datum bleibt nur für diese Sitzung erhalten.
     }
   }, [periodeId, abschnitte]);
-  const [pdfPreview, setPdfPreview] = useState<{ url: string; dateiname: string } | null>(null);
+  const [archivOffen, setArchivOffen] = useState(false);
+  const [archivPreviewFile, setArchivPreviewFile] = useState<string | null>(null);
+
+  const { data: archivDateien = [] } = useQuery({
+    queryKey: ["pdf-archiv", periodeId],
+    queryFn: () => api.get<PdfArchivEintrag[]>(`/perioden/${periodeId}/pdf-archiv`),
+  });
 
   const { data: mieterListe = [], isLoading } = useQuery({
     queryKey: ["schluessel-abrechnung", periodeId],
@@ -519,10 +547,36 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
         }
       ),
     onSuccess: (d) => {
-      setPdfPreview({ url: d.download_url, dateiname: d.dateiname });
+      qc.invalidateQueries({ queryKey: ["pdf-archiv", periodeId] });
+      setArchivPreviewFile(d.dateiname);
+      setArchivOffen(true);
       setKombiModus(false);
       setKombiAusgewaehlt(new Set());
       setKombiName("");
+    },
+    onError: (e: Error) => onError(e.message),
+  });
+
+  const alleAlsZip = useMutation({
+    mutationFn: () =>
+      api.post<{
+        dateiname: string;
+        download_url: string;
+        anzahl: number;
+        uebersprungen: { anzeigename: string; wohnung_bezeichnung: string }[];
+      }>(`/perioden/${periodeId}/schluessel-abrechnung/pdf-alle`, abschnitte),
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["pdf-archiv", periodeId] });
+      const uebersprungenInfo =
+        d.uebersprungen.length > 0
+          ? ` (${d.uebersprungen.length} unvollständig übersprungen)`
+          : "";
+      addToast(
+        "success",
+        `${d.anzahl} PDFs + ZIP im PDF-Archiv bereitgestellt${uebersprungenInfo}`
+      );
+      setArchivPreviewFile(d.dateiname);
+      setArchivOffen(true);
     },
     onError: (e: Error) => onError(e.message),
   });
@@ -551,7 +605,18 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 flex-wrap">
+        <button
+          className="btn btn-secondary btn-sm flex items-center gap-1.5"
+          onClick={() => setArchivOffen(true)}
+          title="Alle generierten PDFs & ZIP-Archive dieser Periode mit Zeitstempel und Vorschau öffnen"
+        >
+          <ArchiveBoxIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          <span>PDF-Archiv &amp; Vorschau</span>
+          <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+            {archivDateien.length}
+          </span>
+        </button>
         <button
           className="btn btn-secondary btn-sm flex items-center gap-1"
           disabled={mieterListe.length === 0}
@@ -560,10 +625,21 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
         >
           <BeakerIcon className="w-3.5 h-3.5" /> Mit angepassten Stammdaten ausprobieren
         </button>
+        <button
+          className="btn btn-primary btn-sm flex items-center gap-1"
+          disabled={berechenbare.length === 0 || alleAlsZip.isPending}
+          onClick={() => alleAlsZip.mutate()}
+          title="Alle berechenbaren Einzel-Abrechnungen erzeugen und im PDF-Archiv bereitstellen"
+        >
+          <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+          {alleAlsZip.isPending ? "Erstelle ZIP…" : "Alle Abrechnungen als ZIP"}
+        </button>
         <button className="btn btn-secondary btn-sm" onClick={() => setSammelOffen(true)}>
           Sammelabrechnung erstellen
         </button>
       </div>
+      <PruefungPanel periodeId={periodeId} onJump={onJumpToStage} />
+
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="Nebenkosten gesamt" value={`${fmtEur(summeKosten)} €`} />
         <SummaryCard label="Vorauszahlungen erhalten" value={`${fmtEur(summeVz)} €`} />
@@ -599,12 +675,17 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
               Datum
             </label>
             {abschnitte.datum_anzeigen && (
-              <input
-                type="date"
-                value={abschnitte.datum}
-                onChange={(e) => setAbschnitte((a) => ({ ...a, datum: e.target.value || heuteIso() }))}
-                className="input py-0.5 text-xs w-[135px]"
-              />
+              <div className="w-[9rem]">
+                <DatePicker
+                  compact
+                  allowClear={false}
+                  value={abschnitte.datum}
+                  onValueChange={(iso) =>
+                    setAbschnitte((a) => ({ ...a, datum: iso || heuteIso() }))
+                  }
+                  className="input py-0.5 text-xs w-full"
+                />
+              </div>
             )}
             <label className="flex items-center gap-1">
               <input
@@ -690,6 +771,10 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
                 abschnitte={abschnitte}
                 segmentAnzahl={mieterListe.filter((x) => x.wohnung_id === m.wohnung_id).length}
                 onGoToVorauszahlung={onGoToVorauszahlung}
+                onOpenArchiv={(dateiname) => {
+                  setArchivPreviewFile(dateiname);
+                  setArchivOffen(true);
+                }}
               />
             ))}
           </div>
@@ -738,15 +823,15 @@ export function AbrechnungTab({ periodeId, liegenschaftName, onError, onGoToVora
         />
       )}
 
-      {pdfPreview && (
-        <PdfPreviewModal
-          downloadUrl={pdfPreview.url}
-          dateiname={pdfPreview.dateiname}
-          onClose={() => setPdfPreview(null)}
-          onSaved={(path) => addToast("success", `PDF gespeichert: ${path}`)}
-          onError={onError}
-        />
-      )}
+      <PdfArchivDrawer
+        open={archivOffen}
+        onClose={() => setArchivOffen(false)}
+        periodeId={periodeId}
+        previewFile={archivPreviewFile}
+        onSelectPreviewFile={setArchivPreviewFile}
+        onSaved={(msg) => addToast("success", msg)}
+        onError={onError}
+      />
     </div>
   );
 }

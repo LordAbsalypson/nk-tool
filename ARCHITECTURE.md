@@ -84,11 +84,14 @@ Freeze-Bugs) in [`desktop/README.md`](desktop/README.md).
 
 ## MCP-Server (LLM-Zugriff)
 
-`mcp-server/` gibt LLM-Clients (Claude Code, Claude Desktop, andere MCP-Clients) Zugriff auf die
-laufende NK-Tool-API und eine schreibgeschützte DB-Sicht — zwei generische Tools
-(`request`, `query_db`) statt ~100 einzelner Wrapper, plus eine automatisch generierte, kompakte
-API-Referenz (`mcp-server/API_REFERENCE.md`, ~160 Zeilen statt der vollständigen
-`AI_COMMANDS.md`-curl-Referenz). Details in [`mcp-server/README.md`](mcp-server/README.md).
+`mcp-server/` (sowie `.mcp.json` im Repo-Root) gibt LLM-Clients (Claude Code, Claude Desktop,
+Cursor, Antigravity) Zugriff auf die NK-Tool-API und eine schreibgeschützte DB-Sicht — fünf
+kompakte Tools (`get_status`, `get_api_reference`, `request`, `get_db_schema`, `query_db`) statt
+>100 einzelner Wrapper. Der Server erkennt automatisch die laufende Desktop-App (`127.0.0.1:52741`),
+den lokalen Dev-Server (`127.0.0.1:8000`) oder nutzt einen direkten In-Process FastAPI-Fallback
+gegen die aktive Datenbank (inkl. Auflösung von `db_location.json`). Die Datei
+`mcp-server/API_REFERENCE.md` wird per `generate_api_reference.py` automatisch aus allen 119
+FastAPI-Routen und 50 Pydantic-Schemas erzeugt. Details in [`mcp-server/README.md`](mcp-server/README.md).
 
 ## Key Patterns
 

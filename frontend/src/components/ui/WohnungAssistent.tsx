@@ -4,6 +4,7 @@ import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@heroicons/react/24/ou
 import { api } from "../../api/client";
 import type { Mieter, Wohnung, Zaehler } from "../../types";
 import { Modal } from "./Modal";
+import { DatePicker } from "./DatePicker";
 
 /** Zählertypen, die eine Wohnung üblicherweise hat. Strom nur, wenn er über
  *  den Vermieter abgerechnet wird. */
@@ -242,11 +243,10 @@ export function WohnungAssistent({ open, liegenschaftId, onClose, onSaved, onErr
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Seit wann wohnt er/sie da?</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="input"
                     value={einzug}
-                    onChange={(e) => setEinzug(e.target.value)}
+                    onValueChange={(iso) => setEinzug(iso)}
                   />
                 </div>
                 <div>

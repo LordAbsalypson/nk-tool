@@ -13,6 +13,8 @@ interface AppInfo {
   dbMissing: boolean;
   /** true, wenn die aktive DB eine verknüpfte externe Datei ist (nicht der Standardspeicherort). */
   dbLinked: boolean;
+  /** Zeitpunkt der jüngsten automatischen Sicherung (TT.MM.JJJJ HH:MM) oder null. */
+  lastBackup?: string | null;
 }
 
 interface PickResult {
@@ -50,6 +52,12 @@ interface DesktopApi {
   save_pdf: (
     suggestedName: string,
     base64Data: string
+  ) => Promise<PickResult & Partial<OkResult> & { path?: string }>;
+  /** Nativer "Speichern unter"-Dialog für beliebige erzeugte Dateien (z. B. ZIP). */
+  save_file: (
+    suggestedName: string,
+    base64Data: string,
+    fileTypeLabel?: string
   ) => Promise<PickResult & Partial<OkResult> & { path?: string }>;
 }
 

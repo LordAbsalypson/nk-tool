@@ -14,6 +14,7 @@ import { Spinner } from "../../components/ui/Spinner";
 import { Badge } from "../../components/ui/Badge";
 import { Modal, ConfirmModal } from "../../components/ui/Modal";
 import { WohnungAssistent } from "../../components/ui/WohnungAssistent";
+import { DatePicker } from "../../components/ui/DatePicker";
 import { nachWohnungsnummer } from "../../utils/sort";
 import { typLabels, HEIZUNG_TYPEN } from "./zaehlerConstants";
 
@@ -47,12 +48,14 @@ function WohnungForm({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<z.input<typeof wohnungSchema>, unknown, WohnungFormData>({
     resolver: zodResolver(wohnungSchema),
     defaultValues: initial,
   });
   const stromUeberVermieter = watch("strom_ueber_vermieter");
+  const stromBezugAb = watch("strom_bezug_ab");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -99,7 +102,13 @@ function WohnungForm({
             </div>
             <div>
               <label className="label">Strombezug ab</label>
-              <input type="date" className="input" {...register("strom_bezug_ab")} />
+              <DatePicker
+                className="input"
+                value={typeof stromBezugAb === "string" ? stromBezugAb : ""}
+                onValueChange={(iso) =>
+                  setValue("strom_bezug_ab", iso || null, { shouldDirty: true, shouldValidate: true })
+                }
+              />
               <p className="text-xs text-gray-400 mt-0.5">
                 Ab wann der Vermieter den Strom für diese Wohnung bezieht/abrechnet.
               </p>
@@ -145,6 +154,7 @@ function ZaehlerForm({
     register,
     handleSubmit,
     watch,
+    setValue,
   } = useForm<ZaehlerFormData>({
     resolver: zodResolver(zaehlerSchema),
     defaultValues: {
@@ -158,6 +168,7 @@ function ZaehlerForm({
     },
   });
   const istStrom = watch("typ") === "strom_kwh";
+  const eingebautAm = watch("eingebaut_am");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -187,7 +198,13 @@ function ZaehlerForm({
         </div>
         <div>
           <label className="label">Eingebaut am</label>
-          <input type="date" className="input" {...register("eingebaut_am")} />
+          <DatePicker
+            className="input"
+            value={eingebautAm ?? ""}
+            onValueChange={(iso) =>
+              setValue("eingebaut_am", iso || null, { shouldDirty: true, shouldValidate: true })
+            }
+          />
         </div>
         <div className="flex items-center gap-2 mt-5">
           <input type="checkbox" id="aktiv_z" {...register("aktiv")} className="w-4 h-4" />
@@ -493,6 +510,8 @@ function MieterForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<z.input<typeof mieterSchema>, unknown, MieterFormData>({
     resolver: zodResolver(mieterSchema),
@@ -507,6 +526,8 @@ function MieterForm({
       ...initial,
     },
   });
+  const einzugDatum = watch("einzug_datum");
+  const auszugDatum = watch("auszug_datum");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -522,12 +543,25 @@ function MieterForm({
         </div>
         <div>
           <label className="label">Einzug</label>
-          <input type="date" className="input" {...register("einzug_datum")} />
+          <DatePicker
+            className="input"
+            allowClear={false}
+            value={einzugDatum}
+            onValueChange={(iso) =>
+              setValue("einzug_datum", iso, { shouldDirty: true, shouldValidate: true })
+            }
+          />
           {errors.einzug_datum && <p className="error-msg">{errors.einzug_datum.message}</p>}
         </div>
         <div>
           <label className="label">Auszug (leer = aktuell)</label>
-          <input type="date" className="input" {...register("auszug_datum")} />
+          <DatePicker
+            className="input"
+            value={typeof auszugDatum === "string" ? auszugDatum : ""}
+            onValueChange={(iso) =>
+              setValue("auszug_datum", iso || null, { shouldDirty: true, shouldValidate: true })
+            }
+          />
         </div>
         <div>
           <label className="label">Personen</label>

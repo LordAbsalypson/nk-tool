@@ -1,6 +1,6 @@
 # NK-Tool — Features & Roadmap
 
-> Stand: 2026-09-18. Ersetzt/ergänzt die veraltete Feature-Beschreibung in `CLAUDE.md`
+> Stand: 2026-11-15. Ersetzt/ergänzt die veraltete Feature-Beschreibung in `CLAUDE.md`
 > (dort ist noch von "Stage2/Stage3" die Rede — der Ablauf wurde inzwischen zu einem
 > gemeinsamen "Live"-Flow mit 5 Schritten zusammengeführt).
 
@@ -31,8 +31,11 @@ Vorauszahlungen → Abrechnung.
   5-Schritt-Ablauf für die tatsächlich genutzte Datenlage
 - Zählerstände erfassen und bearbeiten (inkl. Bearbeiten-Button pro Ablesung)
 - Monatliche Vorauszahlungen pro Mieter, automatisch generiert und inline editierbar
-- Validierungs-/Checkup-Übersicht: zeigt fehlende oder unplausible Daten vor der
-  Berechnung an
+- Validierungs-/Checkup-Übersicht: Prüf-Panel direkt in Schritt 5 (Abrechnung) zeigt fehlende
+  Ablesungen, offene Vorauszahlungen, Datum-Lücken und Mieterwechsel einklappbar mit
+  Sprung-Button zum passenden Schritt
+- Zählerstände-Schritt lädt gebündelt über `GET /perioden/{id}/zaehlerstaende-uebersicht`
+  in einem Request; Erklär-Kästen (`HilfeBox`) sind einklappbar und bleiben gemerkt
 - Globale Suche über Wohnungen, Mieter, Zählerstände und Werte, inkl. direkter
   Wert-Korrektur aus der Trefferliste (`PATCH /suche/wert`)
 
@@ -46,6 +49,8 @@ Vorauszahlungen → Abrechnung.
   wählbar. Debounced-Vorschau der Auswirkung auf das Ergebnis
 - **Personen-Split**: Aufteilung von Kostenanteilen nach Personenzahl innerhalb
   einer Wohnung/Abrechnung
+- **Alle Abrechnungen als ZIP**: Sammel-Export aller berechenbaren Einzel-PDFs einer Periode
+  in einem Klick (`POST /perioden/{id}/schluessel-abrechnung/pdf-alle`)
 - **Sammelabrechnung**: eine gebündelte Übersicht/Export für mehrere Mieter statt
   Einzelabrechnung für Einzelabrechnung
 - Einzelabrechnungen mit A4-Druck-CSS (`window.print()`)

@@ -72,7 +72,6 @@ import webview
 from webview import FileDialog
 
 APP_NAME = "NK-Tool"
-APP_VERSION = "1.0.0"
 
 
 def _resource_root() -> Path:
@@ -86,6 +85,16 @@ def _resource_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(getattr(sys, "_MEIPASS"))
     return Path(__file__).resolve().parent.parent
+
+
+def _read_version() -> str:
+    vf = _resource_root() / "VERSION"
+    if vf.is_file():
+        return vf.read_text(encoding="utf-8").strip()
+    return "1.3.0"
+
+
+APP_VERSION = _read_version()
 
 
 REPO_ROOT = _resource_root()
@@ -112,7 +121,7 @@ def verify_db(path: Path) -> tuple[bool, str]:
     if not path.is_file():
         return False, "Datei nicht gefunden."
     try:
-        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        con = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
         cur = con.cursor()
         cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cur.fetchall()}
@@ -131,6 +140,64 @@ def verify_db(path: Path) -> tuple[bool, str]:
 
 def default_db_path() -> Path:
     return app_data_dir() / "nk_tool.db"
+
+
+def backups_dir() -> Path:
+    return app_data_dir() / "backups"
+
+
+def auto_backup_db(
+    db_path: Path, target_dir: Path | None = None, keep: int = 14
+) -> Path | None:
+    """Erstellt beim App-Start eine tägliche SQLite-Sicherung (max. 1 pro Tag,
+    behält die letzten ``keep`` Sicherungen). Reiner Lesezugriff über sqlite3.backup."""
+    if not db_path.is_file():
+        return None
+    bdir = target_dir or backups_dir()
+    bdir.mkdir(parents=True, exist_ok=True)
+    heute = datetime.now().strftime("%Y-%m-%d")
+    heutige = sorted(bdir.glob(f"backup_{heute}_*.db"))
+    if heutige:
+        return heutige[-1]
+
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    dest = bdir / f"backup_{ts}.db"
+    tmp_dest = bdir / f".backup_{ts}.db.tmp"
+    src_con = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    dst_con = sqlite3.connect(str(tmp_dest))
+    try:
+        src_con.backup(dst_con)
+    except Exception:
+        dst_con.close()
+        src_con.close()
+        tmp_dest.unlink(missing_ok=True)
+        raise
+    else:
+        dst_con.close()
+        src_con.close()
+        os.replace(tmp_dest, dest)
+
+    alle = sorted(bdir.glob("backup_*.db"))
+    if len(alle) > keep:
+        for alt in alle[: len(alle) - keep]:
+            alt.unlink(missing_ok=True)
+    return dest
+
+
+def latest_backup_label(target_dir: Path | None = None) -> str | None:
+    """Formatiertes Datum/Uhrzeit der jüngsten automatischen Sicherung."""
+    bdir = target_dir or backups_dir()
+    if not bdir.is_dir():
+        return None
+    alle = sorted(bdir.glob("backup_*.db"))
+    if not alle:
+        return None
+    neueste = alle[-1].stem  # backup_YYYY-MM-DD_HHMMSS
+    try:
+        dt = datetime.strptime(neueste.removeprefix("backup_"), "%Y-%m-%d_%H%M%S")
+        return dt.strftime("%d.%m.%Y %H:%M")
+    except ValueError:
+        return datetime.fromtimestamp(alle[-1].stat().st_mtime).strftime("%d.%m.%Y %H:%M")
 
 
 def _pointer_path() -> Path:
@@ -240,6 +307,7 @@ class DesktopApi:
             "dbLabel": _read_db_label(),
             "dbMissing": self.missing,
             "dbLinked": is_linked,
+            "lastBackup": latest_backup_label(),
         }
 
     def set_db_label(self, label: str) -> dict:
@@ -379,13 +447,15 @@ class DesktopApi:
             return {"ok": False, "error": str(exc)}
         return {"ok": True}
 
-    def save_pdf(self, suggested_name: str, base64_data: str) -> dict:
-        """Nativer "Speichern unter"-Dialog fuer eine erzeugte Abrechnungs-PDF
-        (Downloads-Ordner als Default-Ort). Ersetzt die bisherige iframe-Vorschau
-        in der Desktop-App: WKWebView (macOS) rendert eingebettete PDFs ueber eine
-        native Ebene, die den Rest der Seite ueberlagern und Klicks blockieren
-        kann (siehe PdfPreviewModal.tsx) - ausserdem funktioniert der <a download>-
-        Mechanismus fuer blob:-URLs dort ohnehin nicht zuverlaessig."""
+    def save_file(
+        self,
+        suggested_name: str,
+        base64_data: str,
+        file_type_label: str = "PDF Datei (*.pdf)",
+    ) -> dict:
+        """Nativer "Speichern unter"-Dialog fuer eine erzeugte Datei (PDF, ZIP, ...)
+        mit Downloads-Ordner als Default-Ort. Hinweis: file_type_label darf fuer
+        pywebview keinen Bindestrich enthalten."""
         window = webview.windows[0]
         downloads = Path.home() / "Downloads"
         start_dir = str(downloads) if downloads.exists() else str(Path.home())
@@ -393,7 +463,7 @@ class DesktopApi:
             FileDialog.SAVE,
             directory=start_dir,
             save_filename=suggested_name,
-            file_types=("PDF Datei (*.pdf)",),
+            file_types=(file_type_label,),
         )
         if not result:
             return {"path": None}
@@ -403,6 +473,15 @@ class DesktopApi:
         except OSError as exc:
             return {"ok": False, "error": str(exc)}
         return {"ok": True, "path": str(target)}
+
+    def save_pdf(self, suggested_name: str, base64_data: str) -> dict:
+        """Nativer "Speichern unter"-Dialog fuer eine erzeugte Abrechnungs-PDF
+        (Downloads-Ordner als Default-Ort). Ersetzt die bisherige iframe-Vorschau
+        in der Desktop-App: WKWebView (macOS) rendert eingebettete PDFs ueber eine
+        native Ebene, die den Rest der Seite ueberlagern und Klicks blockieren
+        kann (siehe PdfPreviewModal.tsx) - ausserdem funktioniert der <a download>-
+        Mechanismus fuer blob:-URLs dort ohnehin nicht zuverlaessig."""
+        return self.save_file(suggested_name, base64_data, "PDF Datei (*.pdf)")
 
     def open_external(self, url: str) -> dict:
         if not (url.startswith("https://") or url.startswith("http://")):
@@ -465,6 +544,11 @@ def main() -> None:
         # app_info()), bevor irgendein Bildschirm mit echten Daten erscheint.
         backend_db_path = Path(tempfile.mkdtemp()) / "nk_tool_scratch.db"
     else:
+        if db_path.is_file():
+            try:
+                auto_backup_db(db_path)
+            except Exception as exc:
+                print(f"WARNUNG: Automatisches Backup fehlgeschlagen: {exc}", file=sys.stderr)
         backend_db_path = db_path
 
     port = 8731
@@ -483,7 +567,11 @@ def main() -> None:
         min_size=(1000, 700),
         js_api=DesktopApi(db_path, missing),
     )
-    webview.start()
+    # private_mode=False + fester storage_path: ohne das verwirft pywebview den
+    # Browser-Speicher bei jedem Beenden — Dark Mode, gemerktes PDF-Datum und die
+    # zuletzt geöffnete Ansicht wären nach jedem Neustart weg. Das Login-Token liegt
+    # bewusst in sessionStorage und verfällt weiterhin beim Schließen der App.
+    webview.start(private_mode=False, storage_path=str(app_data_dir() / "webview"))
 
 
 if __name__ == "__main__":

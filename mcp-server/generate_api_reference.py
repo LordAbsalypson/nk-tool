@@ -1,8 +1,9 @@
-"""Erzeugt mcp-server/API_REFERENCE.md aus den tatsächlich registrierten FastAPI-Routen.
+"""Erzeugt mcp-server/API_REFERENCE.md aus den tatsächlich registrierten FastAPI-Routen
+und deren Pydantic-Request-Schemas.
 
 Läuft NIE gegen die echte Produktions-DB (importiert nur main.py für die Routen-
-Introspektion, öffnet aber keine DB-Verbindung und schreibt nichts). Bewusst
-automatisch generiert statt handgepflegt — verhindert, dass die Referenz vom
+Introspektion, öffnet aber keine produktive DB-Verbindung und schreibt nichts).
+Bewusst automatisch generiert statt handgepflegt — verhindert, dass die Referenz vom
 tatsächlichen Code abweicht (siehe Arbeitsregel "nie APIs erfinden").
 
 Usage:
@@ -16,9 +17,23 @@ import sys
 import tempfile
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = REPO_ROOT / "backend"
+
+
+def _format_schema_fields(model_cls: Any) -> str:
+    fields = getattr(model_cls, "model_fields", None)
+    if not fields:
+        return ""
+    parts = []
+    for fname, finfo in fields.items():
+        ann = getattr(finfo, "annotation", Any)
+        tname = getattr(ann, "__name__", str(ann)).replace("typing.", "")
+        req = "*" if finfo.is_required() else "?"
+        parts.append(f"`{fname}{req}: {tname}`")
+    return ", ".join(parts)
 
 
 def main() -> None:
@@ -30,15 +45,21 @@ def main() -> None:
 
     sys.path.insert(0, str(BACKEND_DIR))
     from fastapi.routing import APIRoute
+    from pydantic import BaseModel
 
     import main as backend_main  # noqa: E402
 
     routes = [r for r in backend_main.app.routes if isinstance(r, APIRoute)]
 
     by_tag: dict[str, list[APIRoute]] = defaultdict(list)
+    body_models: dict[str, Any] = {}
     for r in routes:
         tag = r.tags[0] if r.tags else "sonstige"
         by_tag[tag].append(r)
+        if r.body_field is not None:
+            tp = r.body_field.type_
+            if isinstance(tp, type) and issubclass(tp, BaseModel):
+                body_models[tp.__name__] = tp
 
     lines = [
         "# NK-Tool API Reference (für LLM-/MCP-Nutzung)",
@@ -47,9 +68,9 @@ def main() -> None:
         f" ({len(routes)} Endpunkte) — `python3 mcp-server/generate_api_reference.py`."
         " Nicht von Hand pflegen, bei API-Änderungen neu generieren.",
         "",
-        "Alle Pfade sind relativ zur Basis-URL (Standard `http://127.0.0.1:8000/api/v1`,"
-        " siehe `mcp-server/README.md`). Antwortformat immer"
-        ' `{"ok": true, "data": ...}` oder `{"ok": false, "error": "..."}`.',
+        "Alle Pfade sind relativ zur Basis-URL (Desktop-App `http://127.0.0.1:52741/api/v1`"
+        " oder Dev-Server `http://127.0.0.1:8000/api/v1`, siehe `mcp-server/README.md`)."
+        ' Antwortformat immer `{"ok": true, "data": ...}` oder `{"ok": false, "error": "..."}`.',
         "",
     ]
 
@@ -64,9 +85,18 @@ def main() -> None:
             lines.append(f"- `{methods} {r.path}` — {r.endpoint.__name__}(){body}")
         lines.append("")
 
+    if body_models:
+        lines.append("## Request-Body-Schemas (Pflichtfelder mit `*`, optional mit `?`)")
+        lines.append("")
+        for name in sorted(body_models):
+            fields_str = _format_schema_fields(body_models[name])
+            if fields_str:
+                lines.append(f"- **`{name}`**: {fields_str}")
+        lines.append("")
+
     out_path = Path(__file__).resolve().parent / "API_REFERENCE.md"
     out_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Geschrieben: {out_path} ({len(routes)} Endpunkte, {len(by_tag)} Tags)")
+    print(f"Geschrieben: {out_path} ({len(routes)} Endpunkte, {len(by_tag)} Tags, {len(body_models)} Schemas)")
 
 
 if __name__ == "__main__":

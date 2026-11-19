@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,11 +7,10 @@ from domain import ART_PERIODE_ENDE, ART_PERIODE_START
 from database import get_db
 from models import (
     Abrechnungsperiode,
-    Kostenart,
-    Kostenposition,
     Mieter,
     Vorauszahlung,
     Wohnung,
+    WohnungVerbrauch,
     Zaehler,
     Zaehlerstand,
 )
@@ -43,35 +42,13 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
 
     # ── ERRORS ───────────────────────────────────────────────────────────────
 
-    # 1. Keine Brennstoffkosten
-    brennstoff_arten = (
-        db.query(Kostenart)
-        .filter(
-            Kostenart.liegenschaft_id == periode.liegenschaft_id,
-            Kostenart.ist_brennstoff == True,
-            Kostenart.aktiv == True,
-        )
+    # 1. Fehlende Zählerstände (nur wenn kein manueller WohnungVerbrauch-Override existiert)
+    uebersteuert = {
+        (wv.wohnung_id, wv.zaehler_typ)
+        for wv in db.query(WohnungVerbrauch)
+        .filter(WohnungVerbrauch.abrechnungsperiode_id == periode_id)
         .all()
-    )
-    brennstoff_art_ids = {k.id for k in brennstoff_arten}
-    has_brennstoff_kp = (
-        db.query(Kostenposition)
-        .filter(
-            Kostenposition.abrechnungsperiode_id == periode_id,
-            Kostenposition.kostenart_id.in_(brennstoff_art_ids),
-        )
-        .first()
-    ) if brennstoff_art_ids else None
-
-    if brennstoff_art_ids and not has_brennstoff_kp:
-        errors.append(ValidationMessage(
-            typ="error",
-            code="keine_brennstoffkosten",
-            message="Keine Brennstoffkosten (Öl/Gas) für diese Periode erfasst.",
-            context="Bitte mindestens eine Rechnung unter Brennstoffkosten eintragen.",
-        ))
-
-    # 2. Fehlende Zählerstände
+    }
     wohnungen = (
         db.query(Wohnung)
         .filter(
@@ -87,6 +64,8 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
             .all()
         )
         for zaehler in aktive_zaehler:
+            if (wohnung.id, zaehler.typ) in uebersteuert:
+                continue
             staende = (
                 db.query(Zaehlerstand)
                 .filter(
@@ -103,19 +82,19 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
                     typ="error",
                     code="fehlende_anfangsablesung",
                     message=f"Anfangsablesung fehlt: {typ_label} {label} ({wohnung.bezeichnung})",
-                    context="Bitte Anfangsablesung in Stage 2 → Zählerstände eintragen.",
+                    context="Bitte Anfangsablesung in Schritt 3 · Zählerstände eintragen.",
                 ))
             if ART_PERIODE_ENDE not in arten:
                 errors.append(ValidationMessage(
                     typ="error",
                     code="fehlende_endablesung",
                     message=f"Endablesung fehlt: {typ_label} {label} ({wohnung.bezeichnung})",
-                    context="Bitte Endablesung in Stage 2 → Zählerstände eintragen.",
+                    context="Bitte Endablesung in Schritt 3 · Zählerstände eintragen.",
                 ))
 
     # ── WARNINGS ─────────────────────────────────────────────────────────────
 
-    # 3. Fehlende Vorauszahlungen
+    # 2. Fehlende Vorauszahlungen
     offene_vz = (
         db.query(Vorauszahlung)
         .filter(
@@ -129,10 +108,10 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
             typ="warning",
             code="fehlende_vorauszahlungen",
             message=f"{offene_vz} Vorauszahlung(en) mit Betrag 0 € (noch nicht eingetragen).",
-            context="Bitte unter Stage 2 → Vorauszahlungen alle Ist-Beträge eintragen.",
+            context="Bitte unter Schritt 4 · Vorauszahlungen alle Ist-Beträge eintragen.",
         ))
 
-    # 4. Datum-Lücken in Mieter-Belegung
+    # 3. Datum-Lücken in Mieter-Belegung
     for wohnung in wohnungen:
         mieter_rows = (
             db.query(Mieter)
@@ -151,7 +130,7 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
                 typ="warning",
                 code="keine_mieter",
                 message=f"Wohnung {wohnung.bezeichnung} hat keinen Mieter in dieser Periode.",
-                context="Bitte Mieter oder Leerstand-Eintrag in Stage 1 → Mieter anlegen.",
+                context="Bitte Mieter oder Leerstand-Eintrag in Schritt 1 · Stammdaten → Wohnungen & Mieter anlegen.",
             ))
             continue
 
@@ -163,27 +142,28 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
             einzug = date.fromisoformat(m.einzug_datum)
             auszug = date.fromisoformat(m.auszug_datum) if m.auszug_datum else date(9999, 12, 31)
             if einzug > coverage_start:
+                ende_luecke = einzug - timedelta(days=1)
                 warnings.append(ValidationMessage(
                     typ="warning",
                     code="datum_luecke",
-                    message=f"Datum-Lücke in {wohnung.bezeichnung}: {coverage_start} bis {einzug - __import__('datetime').timedelta(days=1)} nicht belegt.",
-                    context="Bitte Leerstand-Eintrag für den nicht belegten Zeitraum anlegen.",
+                    message=f"Datum-Lücke in {wohnung.bezeichnung}: {coverage_start.strftime('%d.%m.%Y')} bis {ende_luecke.strftime('%d.%m.%Y')} nicht belegt.",
+                    context="Bitte Leerstand-Eintrag in Schritt 1 · Stammdaten → Wohnungen & Mieter anlegen.",
                 ))
             coverage_end = min(auszug, bis)
-            if coverage_end > coverage_start:
-                coverage_start = coverage_end + __import__("datetime").timedelta(days=1)
+            if coverage_end >= coverage_start:
+                coverage_start = coverage_end + timedelta(days=1)
 
         if coverage_start <= bis:
             warnings.append(ValidationMessage(
                 typ="warning",
                 code="datum_luecke",
-                message=f"Datum-Lücke in {wohnung.bezeichnung}: ab {coverage_start} bis Periodenende nicht belegt.",
-                context="Bitte Leerstand-Eintrag für den nicht belegten Zeitraum anlegen.",
+                message=f"Datum-Lücke in {wohnung.bezeichnung}: ab {coverage_start.strftime('%d.%m.%Y')} bis Periodenende nicht belegt.",
+                context="Bitte Leerstand-Eintrag in Schritt 1 · Stammdaten → Wohnungen & Mieter anlegen.",
             ))
 
     # ── INFOS ─────────────────────────────────────────────────────────────────
 
-    # 5. Mieterwechsel aktiv
+    # 4. Mieterwechsel aktiv
     for wohnung in wohnungen:
         echte_mieter = (
             db.query(Mieter)
@@ -202,7 +182,7 @@ def validate_periode(periode_id: int, db: Session = Depends(get_db)) -> ApiRespo
                 typ="info",
                 code="mieterwechsel",
                 message=f"Mieterwechsel in {wohnung.bezeichnung}: {echte_mieter} Mieter in dieser Periode.",
-                context="Kosten werden zeitanteilig aufgeteilt (Tage / Gradtagzahlen).",
+                context="Kosten werden zeitanteilig nach Miettagen aufgeteilt (Verbrauch in Schritt 3 · Zählerstände bei Bedarf je Mieter aufteilbar).",
             ))
 
     result = ValidationResult(

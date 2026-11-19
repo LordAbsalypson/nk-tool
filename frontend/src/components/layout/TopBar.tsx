@@ -11,48 +11,65 @@ interface TopBarProps {
   suche?: ReactNode;
 }
 
-const STAGE_CONFIG: Record<StageId, { label: string; active: string; hover: string }> = {
-  1: { label: "Stammdaten",     active: "bg-blue-600 text-white",    hover: "text-gray-500 hover:bg-blue-50 hover:text-blue-700" },
-  2: { label: "Kostenarten",    active: "bg-amber-500 text-white",   hover: "text-gray-500 hover:bg-amber-50 hover:text-amber-700" },
-  3: { label: "Zählerstände",   active: "bg-cyan-600 text-white",    hover: "text-gray-500 hover:bg-cyan-50 hover:text-cyan-700" },
-  4: { label: "Vorauszahlungen",active: "bg-orange-500 text-white",  hover: "text-gray-500 hover:bg-orange-50 hover:text-orange-700" },
-  5: { label: "Abrechnung",     active: "bg-emerald-600 text-white", hover: "text-gray-500 hover:bg-emerald-50 hover:text-emerald-700" },
+const STAGE_CONFIG: Record<StageId, { label: string }> = {
+  1: { label: "Stammdaten" },
+  2: { label: "Kostenarten" },
+  3: { label: "Zählerstände" },
+  4: { label: "Vorauszahlungen" },
+  5: { label: "Abrechnung" },
 };
 
 export function TopBar({ stage, onStageChange, liegenschaftName, suche }: TopBarProps) {
   return (
-    <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4 shrink-0">
-      <span className="flex items-center gap-1.5 shrink-0 select-none">
-        <img src={logo} alt="" className="h-5 w-5 rounded" />
-        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm tracking-tight">
+    <header className="h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 flex items-center px-5 gap-4 shrink-0">
+      <span className="flex items-center gap-2 shrink-0 select-none">
+        <img src={logo} alt="" className="h-5 w-5 rounded-md shadow-sm" />
+        <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm tracking-tight">
           NK-Tool
         </span>
       </span>
       {liegenschaftName && (
         <>
-          <span className="text-gray-300 select-none shrink-0">|</span>
-          <span className="text-sm text-gray-600 truncate max-w-[12rem] shrink-0">
+          <span className="text-slate-300 dark:text-slate-700 select-none shrink-0">/</span>
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md truncate max-w-[14rem] shrink-0">
             {liegenschaftName}
           </span>
         </>
       )}
       {suche}
-      <div className="ml-auto flex items-center gap-1 shrink-0">
+      <nav
+        aria-label="Arbeitsschritte"
+        className="ml-auto flex items-center gap-0.5 bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200/70 dark:border-slate-700/70 shrink-0"
+      >
         {([1, 2, 3, 4, 5] as const).map((s) => {
           const cfg = STAGE_CONFIG[s];
+          const isActive = stage === s;
           return (
             <button
               key={s}
+              type="button"
               onClick={() => onStageChange(s)}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 ${
-                stage === s ? cfg.active : cfg.hover
+              aria-current={isActive ? "step" : undefined}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                isActive
+                  ? "bg-slate-900 dark:bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/70 dark:hover:bg-slate-700/60"
               }`}
             >
-              {s} · {cfg.label}
+              <span
+                className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-mono ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                {s}
+              </span>
+              {cfg.label}
             </button>
           );
         })}
-      </div>
+      </nav>
     </header>
   );
 }

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -34,7 +34,9 @@ def update_todo(todo_id: int, body: TodoUpdate, db: Session = Depends(get_db)) -
         obj.text = body.text
     if body.erledigt is not None:
         obj.erledigt = body.erledigt
-        obj.erledigt_am = datetime.utcnow().isoformat() if body.erledigt else None
+        obj.erledigt_am = (
+            datetime.now(timezone.utc).replace(tzinfo=None).isoformat() if body.erledigt else None
+        )
     db.commit()
     db.refresh(obj)
     return ApiResponse(ok=True, data=TodoOut.model_validate(obj))

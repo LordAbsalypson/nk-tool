@@ -30,7 +30,7 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
 
   const [info, setInfo] = useState<{
     version: string; platform: string; dbPath: string; dbSizeBytes: number;
-    dbLabel: string; dbLinked: boolean;
+    dbLabel: string; dbLinked: boolean; lastBackup?: string | null;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -223,6 +223,9 @@ export function DesktopSettingsModal({ open, onClose }: DesktopSettingsModalProp
                   {info.dbLinked ? "verknüpft" : "Standardspeicherort"}
                 </span>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Letzte automatische Sicherung: {info.lastBackup ?? "Noch keine"}
+              </p>
             </div>
           )}
           <div className="flex flex-wrap gap-2">

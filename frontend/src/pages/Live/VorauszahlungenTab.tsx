@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import type { VorauszahlungGrid, Vorauszahlung } from "../../types";
 import { Spinner } from "../../components/ui/Spinner";
 import { Modal } from "../../components/ui/Modal";
+import { HilfeBox } from "../../components/ui/HilfeBox";
 
 interface Props {
   periodeId: number;
@@ -116,7 +117,7 @@ function EditableCell({
   return (
     <button
       data-vz-order={order}
-      className="w-full flex items-center justify-end gap-1 hover:bg-amber-50 rounded px-1 py-0.5 transition-colors group"
+      className="w-full flex items-center justify-end gap-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-1 py-0.5 transition-colors group"
       onClick={() => {
         setValue(vz.betrag_ist.toString());
         setEditing(true);
@@ -125,9 +126,9 @@ function EditableCell({
         vz.ist_override ? " (manuell fixiert)" : ""
       }`}
     >
-      {vz.ist_override && <span className="w-1 h-1 rounded-full bg-blue-400 shrink-0" />}
+      {vz.ist_override && <span className="w-1 h-1 rounded-full bg-indigo-500 shrink-0" />}
       <span className={`text-xs font-medium block ${
-        isPaid ? "text-green-600" : isZero ? "text-orange-500" : "text-gray-800"
+        isPaid ? "text-emerald-600 dark:text-emerald-400" : isZero ? "text-rose-500 dark:text-rose-400" : "text-slate-800 dark:text-slate-200"
       }`}>
         {fmt(vz.betrag_ist)} €
       </span>
@@ -174,7 +175,7 @@ function SollCell({
             setEditing(false);
           }
         }}
-        className="w-16 px-1 py-0.5 text-[11px] border border-amber-400 rounded text-right focus:outline-none"
+        className="w-16 px-1 py-0.5 text-[11px] border border-indigo-400 rounded text-right focus:outline-none"
         autoFocus
       />
     );
@@ -182,7 +183,7 @@ function SollCell({
 
   return (
     <button
-      className="flex items-center justify-end gap-1 w-full hover:text-amber-700 group"
+      className="flex items-center justify-end gap-1 w-full hover:text-indigo-600 dark:hover:text-indigo-400 group"
       onClick={() => {
         setValue(vz.betrag_soll.toString());
         setEditing(true);
@@ -191,8 +192,8 @@ function SollCell({
         vz.soll_override ? " (manuell fixiert)" : ""
       }`}
     >
-      {vz.soll_override && <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />}
-      <span className="text-gray-400 text-xs group-hover:text-amber-600">
+      {vz.soll_override && <span className="w-1 h-1 rounded-full bg-indigo-500 shrink-0" />}
+      <span className="text-slate-600 dark:text-slate-300 text-xs font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
         Soll: {fmt(vz.betrag_soll)}
       </span>
     </button>
@@ -491,17 +492,16 @@ export function VorauszahlungenTab({ periodeId, onSaved, onError, focusMieterId,
   return (
     <div>
       {/* Info-Banner */}
-      <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 space-y-1">
-        <p className="font-semibold">Wie funktioniert diese Tabelle?</p>
+      <HilfeBox id="vorauszahlungen" titel="Wie funktioniert diese Tabelle?">
         <p>
           Jede Zelle zeigt oben den <strong>gezahlten Betrag (Ist)</strong> — klicken zum Bearbeiten.
-          Darunter steht <span className="text-amber-600">Soll:</span> der vereinbarte Monatsbetrag —
+          Darunter steht <span className="text-indigo-600 dark:text-indigo-400 font-medium">Soll:</span> der vereinbarte Monatsbetrag —
           ebenfalls klickbar.
         </p>
         <p>
           Beim Ändern des Soll-Betrags fragt ein Popup, ob der neue Wert nur für diesen Monat
           gilt oder als Standard für den gesamten Zeitraum (und künftige Perioden) übernommen wird.
-          Ein <span className="text-amber-600 font-medium">Punkt</span> markiert Monate, die
+          Ein <span className="text-indigo-600 dark:text-indigo-400 font-medium">Punkt</span> markiert Monate, die
           einzeln fixiert wurden.
         </p>
         <p>
@@ -512,7 +512,7 @@ export function VorauszahlungenTab({ periodeId, onSaved, onError, focusMieterId,
           <span className="text-green-600 font-medium">Grün</span> = vollständig bezahlt.{" "}
           <span className="text-orange-500 font-medium">Orange</span> = noch nicht eingetragen (0 €).
         </p>
-      </div>
+      </HilfeBox>
 
       <div className="overflow-x-auto">
         <table className="text-xs w-full min-w-[1300px] border-collapse">

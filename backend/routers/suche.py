@@ -143,7 +143,7 @@ def _text_treffer(tokens: list[str], *kandidaten: Optional[str]) -> bool:
             continue
         if tn in haystack:
             return True
-        # Namen mit Tippfehler: "janssen" ↔ "janßen", "repnack" ↔ "repnak"
+        # Namen mit Tippfehler: z. B. "mueller" ↔ "müller", "schmidt" ↔ "schmitt"
         if len(tn) >= 4 and difflib.get_close_matches(tn, worte, n=1, cutoff=0.82):
             return True
     return False

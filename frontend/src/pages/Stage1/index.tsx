@@ -4,13 +4,11 @@ import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import type { Liegenschaft } from "../../types";
 import { UebersichtTab } from "./UebersichtTab";
 import { WohnungenMieterTab } from "./WohnungenMieterTab";
-import { KostenartenTab } from "./KostenartenTab";
 import { PeriodenTab } from "./PeriodenTab";
 
 const TABS = [
   { key: "uebersicht",  label: "Übersicht" },
   { key: "wohnungen",   label: "Wohnungen & Mieter" },
-  { key: "kostenarten", label: "Kostenarten" },
   { key: "perioden",    label: "Perioden" },
 ] as const;
 
@@ -25,7 +23,10 @@ interface Props {
 
 export default function Stage1({ liegenschaft, onSaved, onError, onGoToStage2 }: Props) {
   const [params, setParams] = useSearchParams();
-  const activeTab: TabKey = (params.get("tab") as TabKey) ?? "uebersicht";
+  // Unbekannte Tab-Namen (z. B. alte Links auf den entfernten Kostenarten-Tab)
+  // fallen auf die Übersicht zurück statt eine leere Seite zu zeigen.
+  const tabParam = params.get("tab");
+  const activeTab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "uebersicht";
   const pendingSaveFn = useRef<(() => void) | null>(null);
 
   const currentIdx = TABS.findIndex((t) => t.key === activeTab);
@@ -39,10 +40,14 @@ export default function Stage1({ liegenschaft, onSaved, onError, onGoToStage2 }:
 
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      <nav className="flex gap-0 border-b border-gray-200 dark:border-gray-700 px-6 shrink-0">
+      <nav
+        aria-label="Stammdaten-Bereiche"
+        className="flex gap-0 border-b border-gray-200 dark:border-gray-700 px-6 shrink-0"
+      >
         {TABS.map((t) => (
           <button
             key={t.key}
+            type="button"
             onClick={() => handleTabChange(t.key)}
             className={`tab-btn ${
               activeTab === t.key ? "tab-btn-active" : "tab-btn-inactive"
@@ -64,13 +69,6 @@ export default function Stage1({ liegenschaft, onSaved, onError, onGoToStage2 }:
         )}
         {activeTab === "wohnungen" && (
           <WohnungenMieterTab
-            liegenschaftId={liegenschaft.id}
-            onSaved={onSaved}
-            onError={onError}
-          />
-        )}
-        {activeTab === "kostenarten" && (
-          <KostenartenTab
             liegenschaftId={liegenschaft.id}
             onSaved={onSaved}
             onError={onError}
@@ -100,7 +98,7 @@ export default function Stage1({ liegenschaft, onSaved, onError, onGoToStage2 }:
             onClick={() => { pendingSaveFn.current?.(); onGoToStage2(); }}
             className="btn btn-primary flex items-center gap-1"
           >
-            Weiter zu Kosteneingabe <ArrowRightIcon className="w-4 h-4" />
+            Weiter zu Kostenarten <ArrowRightIcon className="w-4 h-4" />
           </button>
         )}
       </div>

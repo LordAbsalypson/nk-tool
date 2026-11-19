@@ -127,12 +127,26 @@ function NewLiegFormComponent({
   );
 }
 
+const ANSICHT_KEY = "nk-tool-ansicht";
+
+/** Zuletzt geöffnetes Haus + Schritt — damit die App nach einem Neustart dort
+ *  weitermacht, wo man aufgehört hat, statt immer bei Haus 1 / Stammdaten. */
+function ladeAnsicht(): { liegenschaftId: number | null; stage: StageId } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ANSICHT_KEY) ?? "{}");
+    const stage = [1, 2, 3, 4, 5].includes(raw.stage) ? (raw.stage as StageId) : 1;
+    return { liegenschaftId: typeof raw.liegenschaftId === "number" ? raw.liegenschaftId : null, stage };
+  } catch {
+    return { liegenschaftId: null, stage: 1 };
+  }
+}
+
 function AppInner() {
   const qc = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [dark, setDark] = useDarkMode();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [stage, setStage] = useState<StageId>(1);
+  const [selectedId, setSelectedId] = useState<number | null>(() => ladeAnsicht().liegenschaftId);
+  const [stage, setStage] = useState<StageId>(() => ladeAnsicht().stage);
   const [vzFocusMieterId, setVzFocusMieterId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showGlossar, setShowGlossar] = useState(false);
@@ -149,9 +163,12 @@ function AppInner() {
   useEffect(() => {
     if (!isDesktopApp()) return;
     const desktopApi = getDesktopApi();
-    desktopApi.app_info().then((info) => {
-      if (info.dbMissing) setDbMissingPath(info.dbPath);
-    });
+    desktopApi
+      .app_info()
+      .then((info) => {
+        if (info.dbMissing) setDbMissingPath(info.dbPath);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -168,12 +185,21 @@ function AppInner() {
     queryFn: () => api.get<Liegenschaft[]>("/liegenschaften"),
     enabled: authNeeded === false,
     select: (data) => {
-      if (selectedId === null && data.length > 0) {
+      // Auch greifen, wenn das gemerkte Haus nicht mehr existiert (gelöscht, andere DB).
+      if (data.length > 0 && !data.some((l) => l.id === selectedId)) {
         setSelectedId(data[0].id);
       }
       return data;
     },
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ANSICHT_KEY, JSON.stringify({ liegenschaftId: selectedId, stage }));
+    } catch {
+      // localStorage nicht verfügbar — Ansicht wird dann nur nicht gemerkt.
+    }
+  }, [selectedId, stage]);
 
   const createMutation = useMutation({
     mutationFn: (d: NewLiegForm) =>
@@ -335,6 +361,10 @@ function AppInner() {
               onGoToVorauszahlung={(mieterId) => {
                 setVzFocusMieterId(mieterId);
                 setStage(4);
+              }}
+              onJumpToStage={(zielStage, tab) => {
+                setStage(zielStage);
+                if (tab) setParams({ tab });
               }}
             />
           )}

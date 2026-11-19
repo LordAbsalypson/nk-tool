@@ -35,6 +35,12 @@ als PDF — lokal ab. Alle Daten bleiben auf dem eigenen Rechner.
 - Kostenarten direkt mit €/Einheit-Sätzen erfassen (inkl. Rechner: Gesamtkosten
   ÷ Gesamteinheiten → Satz automatisch, mit Vorschlagswert aus echten
   Stammdaten/Zählerständen)
+- **Unterjähriger Mieter-Auszug / neue Periode**: Beim Anlegen einer neuen
+  Abrechnungsperiode werden die Einheitspreise (`€/kWh`, `€/m³`, `€/m²`)
+  automatisch aus der Vorperiode übernommen (oder per 1-Klick nachgeladen),
+  sodass Auszugs-Abrechnungen sofort mit taggenauer Zeit-Proration und exaktem
+  Zählerverbrauch erstellt werden können, noch bevor die Jahres-Gas-/Stromrechnung
+  vorliegt
 - Gilt automatisch für mehrere Liegenschaften mit identischem Abrechnungszeitraum
 - Zählerstände erfassen, inkl. Vorjahreswert-Übernahme und manueller
   Verbrauchskorrektur pro Wohnung/Mieter
@@ -49,17 +55,28 @@ als PDF — lokal ab. Alle Daten bleiben auf dem eigenen Rechner.
 - Einzelabrechnung pro Mieter als PDF, inkl. anpassbarer Vorlage
   (Briefkopf, Anrede, Schlusstext, Fußzeile, Seitenränder, automatische
   Schriftverkleinerung bei Platzmangel)
+- **PDF-Archiv & Vorschau (Side-Drawer)**: Generierte Einzel-PDFs, Kombi-PDFs und
+  Sammel-ZIPs landen mit Zeitstempel im Seitenmenü der Periode — mit integrierter
+  PDF-Vorschau und gezieltem Download ohne Zumüllen des `Downloads`-Ordners
 - Kombinierte Abrechnung bei Wohnungstausch innerhalb einer Periode
 - Nebenkostenabrechnung auf mehrere Bewohner einer Wohnung aufteilen
   (Personen-Split, z. B. bei Wohngemeinschaften)
-- Sammelabrechnung/Jahresübersicht einer ganzen Liegenschaft als PDF
-- Validierung/Checkup: fehlende Zählerstände, offene Zahlungen, Plausibilitäts-
-  warnungen auf einen Blick
+- Sammelabrechnung/Jahresübersicht einer ganzen Liegenschaft als PDF sowie
+  Sammel-Export aller Einzel-PDFs als ZIP-Archiv
+- **Prüfhinweise-Drawer mit Abhak-Funktion**: Fehlende Zählerstände, offene
+  Zahlungen und Plausibilitäts-Hinweise im übersichtlichen Seitenmenü prüfen und
+  einzeln oder gesammelt als „Zur Kenntnis genommen" abhaken
 - Globale Suche über alle Liegenschaften und Eingabeschritte hinweg
 
-**Sonstiges**
-- Dark Mode, Glossar der wichtigsten Nebenkosten-Fachbegriffe
-- Aufgaben/To-dos je Abrechnungslauf
+**Bedienkomfort, Barrierefreiheit & KI-Schnittstelle**
+- **Schneller deutscher DatePicker (`TT.MM.JJJJ`)** mit Direkt-Tippen, Pfeiltasten
+  und 1-Klick-Schnellauswahl (`Heute`, `01.06.`, `31.05.`, `Monatsanfang`/`Monatsende`)
+- **Hoher Lesekontrast (WCAG AAA) & Textzoom (`⌘+` / `⌘−` / `⌘0`)**: Stufenweise
+  Vergrößerung der gesamten Oberfläche (`80%`–`150%`) per Tastenkürzel oder
+  `A−`/`A+`-Buttons in der Fußzeile
+- **Nativer MCP-Server (`mcp-server/`)**: Direkte Interaktion mit der App über
+  Claude Code, Claude Desktop, Cursor oder Antigravity
+- Dark Mode, Glossar der wichtigsten Nebenkosten-Fachbegriffe, Aufgabenliste
 
 > Hinweis: Der Funktionsumfang wurde direkt aus dem Quellcode und der internen
 > Projektdokumentation abgeleitet. Screenshots siehe unten.
@@ -224,9 +241,15 @@ machine.
   warnings at a glance
 - Global search across all properties and workflow steps
 
-**Other**
-- Dark mode, a glossary of the relevant billing terminology
-- A simple to-do list per billing run
+**Other & Accessibility**
+- High-contrast "Nordic Slate & Indigo" UI (WCAG AAA readability) with incremental
+  UI/text zoom (`Cmd/Ctrl +`, `Cmd/Ctrl -`, `Cmd/Ctrl 0` and footer `A−`/`A+` controls)
+- Fast custom German DatePicker (`DD.MM.YYYY`) with quick-select chips
+- PDF archive side-drawer with inline PDF preview and one-click ZIP export
+- Checkable validation side-drawer ("Zur Kenntnis genommen")
+- Automatic carry-over of unit rates from the previous period for mid-year tenant move-outs
+- Built-in MCP server (`mcp-server/server.py`, `.mcp.json`) for LLM integration
+- Dark mode, glossary of billing terminology, per-run to-do list
 
 > Note: this feature list was derived directly from the source code and
 > internal project documentation. Screenshots below.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon, TrashIcon, CalculatorIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon, CalculatorIcon, CheckCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { api } from "../../api/client";
 import {
   BASIS_KURZ,
@@ -14,6 +14,7 @@ import {
 } from "../../types";
 import { Spinner } from "../../components/ui/Spinner";
 import { ConfirmModal } from "../../components/ui/Modal";
+import { HilfeBox } from "../../components/ui/HilfeBox";
 
 function parseZahl(v: string): number | null {
   const t = v.trim().replace(",", ".");
@@ -223,8 +224,8 @@ function KostenartKachel({
     <div className="card">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{kostenart.name}</h4>
-          <p className="text-xs text-gray-400">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{kostenart.name}</h4>
+          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
             {BASIS_KURZ[kostenart.verteilungsbasis]}
             {kostenart.hat_grundkosten_split && " · Grund+Verbrauch-Split"}
           </p>
@@ -239,7 +240,7 @@ function KostenartKachel({
       </div>
 
       {unvollstaendig && (
-        <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2">
+        <p className="text-[10px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded px-2 py-1 mb-2">
           Nur einer der beiden Sätze gesetzt — HeizkostenV verlangt beide (mind. 30% Grundkosten).
         </p>
       )}
@@ -247,7 +248,7 @@ function KostenartKachel({
       {kostenart.hat_grundkosten_split ? (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-500">Grundkosten</label>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Grundkosten</label>
             <div className="flex items-center gap-1">
               <input
                 type="text"
@@ -255,13 +256,13 @@ function KostenartKachel({
                 placeholder="—"
                 value={grund}
                 onChange={(e) => setEntwurf((v) => ({ ...v, grund: e.target.value }))}
-                className="input text-sm py-1 text-right"
+                className="input text-sm py-1 text-right font-mono"
               />
-              <span className="text-[10px] text-gray-400 shrink-0">€/m²</span>
+              <span className="text-xs font-medium text-slate-700 dark:text-slate-300 shrink-0">€/m²</span>
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500">Verbrauch</label>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Verbrauch</label>
             <div className="flex items-center gap-1">
               <input
                 type="text"
@@ -269,9 +270,9 @@ function KostenartKachel({
                 placeholder="—"
                 value={verbrauch}
                 onChange={(e) => setEntwurf((v) => ({ ...v, verbrauch: e.target.value }))}
-                className="input text-sm py-1 text-right"
+                className="input text-sm py-1 text-right font-mono"
               />
-              <span className="text-[10px] text-gray-400 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis].split("/")[1]}</span>
+              <span className="text-xs font-medium text-slate-700 dark:text-slate-300 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis].split("/")[1]}</span>
             </div>
           </div>
         </div>
@@ -283,9 +284,9 @@ function KostenartKachel({
             placeholder="—"
             value={proEinheit}
             onChange={(e) => setEntwurf((v) => ({ ...v, pro_einheit: e.target.value }))}
-            className="input text-sm py-1 text-right"
+            className="input text-sm py-1 text-right font-mono"
           />
-          <span className="text-[10px] text-gray-400 w-24 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis]}</span>
+          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-28 shrink-0">{BASIS_LABELS[kostenart.verteilungsbasis]}</span>
         </div>
       )}
 
@@ -410,6 +411,8 @@ export function KostenartenTab({ periodeId, onSaved }: Props) {
   const qc = useQueryClient();
   const [neuOffen, setNeuOffen] = useState(false);
   const [uebernommenFuer, setUebernommenFuer] = useState<string[]>([]);
+  const [vorperiodeInfo, setVorperiodeInfo] = useState<string | null>(null);
+  const [vorperiodeFehler, setVorperiodeFehler] = useState<string | null>(null);
 
   const { data: kostenarten = [], isLoading } = useQuery({
     queryKey: ["direkt-kostenarten"],
@@ -422,6 +425,26 @@ export function KostenartenTab({ periodeId, onSaved }: Props) {
   const { data: vorschlag } = useQuery({
     queryKey: ["gesamteinheiten-vorschlag", periodeId],
     queryFn: () => api.get<GesamteinheitenVorschlag>(`/perioden/${periodeId}/gesamteinheiten-vorschlag`),
+  });
+
+  const ausVorperiodeMut = useMutation({
+    mutationFn: () =>
+      api.post<{
+        uebernommen: number;
+        quell_periode_id: number;
+        quell_periode_bezeichnung: string;
+      }>(`/perioden/${periodeId}/direkt-kostenarten-werte/aus-vorperiode`, {}),
+    onSuccess: (res) => {
+      setVorperiodeFehler(null);
+      setVorperiodeInfo(
+        `${res.uebernommen} Kostenart-Sätze aus „${res.quell_periode_bezeichnung}" übernommen.`
+      );
+      invalidateAlles();
+    },
+    onError: (e: Error) => {
+      setVorperiodeInfo(null);
+      setVorperiodeFehler(e.message);
+    },
   });
 
   const werteMap: Record<number, DirektKostenartWert> = {};
@@ -444,19 +467,57 @@ export function KostenartenTab({ periodeId, onSaved }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Kostenarten</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Kostenarten</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Jede Kachel ist eine eigene Kostenart — Satz direkt eintragen oder über den Rechner aus
             Gesamtbetrag ÷ Gesamteinheiten ableiten.{" "}
             <strong>Gilt automatisch für alle Häuser mit gleichem Abrechnungszeitraum.</strong>
           </p>
         </div>
-        <button onClick={() => setNeuOffen(true)} className="btn btn-primary btn-sm flex items-center gap-1">
-          <PlusIcon className="w-4 h-4" /> Neue Kostenart
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => ausVorperiodeMut.mutate()}
+            disabled={ausVorperiodeMut.isPending}
+            className="btn btn-secondary btn-sm flex items-center gap-1.5"
+            title="Übernimmt alle €-Sätze (€/kWh, €/m³, €/m²) aus der jüngsten Vorperiode — ideal für unterjährige Auszugs-Abrechnungen, bevor die neue Gas-/Strom-Jahresrechnung vorliegt"
+          >
+            <ArrowPathIcon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            {ausVorperiodeMut.isPending ? "Übernehme…" : "Sätze aus Vorperiode übernehmen"}
+          </button>
+          <button onClick={() => setNeuOffen(true)} className="btn btn-primary btn-sm flex items-center gap-1">
+            <PlusIcon className="w-4 h-4" /> Neue Kostenart
+          </button>
+        </div>
       </div>
+
+      <HilfeBox id="kostenarten-auszug" titel="Unterjähriger Mieter-Auszug in neuer Periode (ohne neue Jahresrechnung)">
+        <p>
+          <strong>Wie wird abgerechnet, wenn ein Mieter mitten im Jahr auszieht und noch keine neue Gas-/Strom-Gesamtabrechnung vorliegt?</strong>
+        </p>
+        <p>
+          Beim Anlegen einer neuen Periode übernimmt das NK-Tool automatisch die letzten bekannten Einheitspreise
+          (<strong>€/kWh</strong>, <strong>€/m³</strong>, <strong>€/m²</strong>) aus der Vorperiode (oder jederzeit per Klick auf
+          <em> „Sätze aus Vorperiode übernehmen"</em>).
+        </p>
+        <p>
+          Die Abrechnungs-Engine rechnet alle zeitabhängigen Sätze (Grundkosten Heizung/Warmwasser, Grundsteuer,
+          Versicherung, Müll etc.) <strong>automatisch auf Tagessätze herunter</strong> (<code>Miettage ÷ Periodentage</code>)
+          und multipliziert den exakten Zählerverbrauch des ausgezogenen Mieters (aus Schritt 3) mit dem jeweiligen
+          <strong> €/kWh- bzw. €/m³-Satz</strong>.
+        </p>
+      </HilfeBox>
+
+      {vorperiodeInfo && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <CheckCircleIcon className="w-3.5 h-3.5" /> {vorperiodeInfo}
+        </p>
+      )}
+      {vorperiodeFehler && (
+        <p className="text-xs text-rose-600 dark:text-rose-400">{vorperiodeFehler}</p>
+      )}
 
       {uebernommenFuer.length > 0 && (
         <p className="text-xs text-emerald-600 flex items-center gap-1">

@@ -1,18 +1,30 @@
-# NK-Tool — AI Agent Command Reference
+# NK-Tool — AI Agent & MCP Command Reference (v1.4.0)
 
-> **Purpose:** This document enables an LLM (Claude Code CLI, Gemini CLI, etc.) to interact
-> with the NK-Tool backend via HTTP API commands. Use it to create tenants, enter meter readings,
-> record invoices, and run the billing calculation — all from the terminal or programmatically.
+> **Purpose:** This document enables an LLM (Claude Code, Antigravity, Cursor, Gemini CLI, etc.) to
+> interact with NK-Tool either via its **native MCP Server (`mcp-server/server.py`)** or directly via
+> REST API (`curl`). All active billing logic runs through the **5-Step Direkt-Preise workflow**
+> (`schluessel_engine.py`).
 
-## Setup
+## 1. Recommended: Native MCP Server (`mcp-server/server.py`)
+
+The project includes a preconfigured `.mcp.json` in the repository root. Any MCP-capable AI agent
+automatically gets 5 tools:
+
+| MCP Tool | Description |
+|----------|-------------|
+| `get_status()` | **Call first.** Returns app version, active SQLite DB path (auto-detects Desktop App's `db_location.json`, Desktop default DB, or repo DB), active API mode (`live_http` on `:52741` / `:8000` or automatic `in_process_fallback`), plus all properties (`liegenschaften`) and periods (`perioden`). |
+| `get_api_reference()` | Returns the auto-generated compact list of all **119 FastAPI endpoints** and **50 Pydantic request-body schemas** (`mcp-server/API_REFERENCE.md`). |
+| `request(method, path, json_body=None)` | Executes `GET`, `POST`, `PUT`, `PATCH`, or `DELETE` against the real NK-Tool API (live server or automatic in-process FastAPI fallback if the app window is closed). |
+| `get_db_schema()` | Compact list of all SQLite tables and columns. |
+| `query_db(sql)` | Read-only `SELECT` query against the active SQLite database (`mode=ro`). |
+
+---
+
+## 2. Direct HTTP / `curl` Setup
 
 ```bash
-# Start the backend (required)
-cd /Users/jp/projects/nk-tool/backend
-uvicorn main:app --reload --port 8000
-
-# Base URL for all commands
-BASE="http://localhost:8000/api/v1"
+# Desktop App runs on port 52741; Dev server runs on port 8000:
+BASE="http://127.0.0.1:52741/api/v1"   # or http://localhost:8000/api/v1
 
 # All responses have the shape: {"ok": true, "data": ...} or {"ok": false, "error": "..."}
 ```
@@ -320,12 +332,61 @@ curl -s -X DELETE "$BASE/kostenarten/1" | python3 -m json.tool
 
 ---
 
-## Phase 2 — Kosteneingabe (Data Entry)
+## Phase 2 — Kosteneingabe (Active 5-Step Direkt-Preise Model)
 
-### Kostenpositionen (Invoices / Cost Records)
+> **Important:** The active billing engine (`schluessel_engine.py`) reads cost categories and unit rates
+> from `/direkt-kostenarten` and `/perioden/{pid}/direkt-kostenarten-werte` (Step 2 in the UI).
+> When a new period is created (`POST /liegenschaften/{lid}/perioden`), unit rates from the most recent
+> previous period are automatically copied as initial defaults so under-year tenant move-out statements
+> work immediately.
+
+### Step 2: Direkt-Kostenarten & Unit Rates (€/m², €/kWh, €/m³, €/Person/Monat)
 
 ```bash
-# List all invoices for a period
+# List all configured Direkt-Kostenarten (shared across properties)
+curl -s "$BASE/direkt-kostenarten" | python3 -m json.tool
+
+# List unit rates for period 1
+curl -s "$BASE/perioden/1/direkt-kostenarten-werte" | python3 -m json.tool
+
+# Set unit rate for a regular cost type (e.g., Grundsteuer: 2.15 €/m²)
+curl -s -X PUT "$BASE/perioden/1/direkt-kostenarten-werte/3" \
+  -H "Content-Type: application/json" \
+  -d '{"preis_pro_einheit": 2.15}' | python3 -m json.tool
+
+# Set unit rates for a cost type with Grund+Verbrauch split (e.g., Heizung)
+curl -s -X PUT "$BASE/perioden/1/direkt-kostenarten-werte/1" \
+  -H "Content-Type: application/json" \
+  -d '{"preis_grund_pro_m2": 3.40, "preis_verbrauch_pro_einheit": 0.125}' | python3 -m json.tool
+
+# Calculate Grund+Verbrauch split automatically from total bill + total units
+curl -s -X POST "$BASE/perioden/1/direkt-kostenarten-werte/1/split-rechner" \
+  -H "Content-Type: application/json" \
+  -d '{"gesamtkosten": 8500.0, "grund_anteil": 0.30, "gesamt_m2": 650.0, "gesamt_verbrauch": 47600.0}' \
+  | python3 -m json.tool
+
+# Copy missing (or all) unit rates from the previous period (for under-year tenant move-outs)
+curl -s -X POST "$BASE/perioden/2/direkt-kostenarten-werte/aus-vorperiode?ueberschreiben=false" \
+  | python3 -m json.tool
+```
+
+### Step 3: Batched Meter Overview & Tenant Move-Out Consumption Overrides
+
+```bash
+# Fetch all apartments, meters, readings, and overrides for period 1 in a SINGLE request:
+curl -s "$BASE/perioden/1/zaehlerstaende-uebersicht" | python3 -m json.tool
+
+# Set exact consumption for a tenant on move-out (overrides day/Gradtagzahl proration):
+curl -s -X PUT "$BASE/perioden/1/mieter/5/verbrauch-override" \
+  -H "Content-Type: application/json" \
+  -d '{"zaehler_typ": "waerme_kwh", "wert": 1850.0, "als_schaetzung_anzeigen": false}' \
+  | python3 -m json.tool
+```
+
+### Legacy Invoices / Receipts (`/kostenpositionen`)
+
+```bash
+# List all legacy invoices/receipts for a period
 curl -s "$BASE/perioden/1/kostenpositionen" | python3 -m json.tool
 
 # Create an invoice entry (Brennstoffkosten — oil delivery)
@@ -520,22 +581,39 @@ curl -s "$BASE/perioden/1/validierung" | python3 -m json.tool
 
 ---
 
-## Phase 3 — Berechnung (Calculation & Billing)
+## Phase 3 — Abrechnung, PDF-Archiv & ZIP-Export (Step 5)
 
 ```bash
-# Run calculation for period 1 (creates MieterKostenanteil rows)
-curl -s -X POST "$BASE/perioden/1/berechnen" | python3 -m json.tool
-# Response: BerechnungSummary with gesamt_kosten, heiz_gesamt, ww_gesamt, etc.
+# Get live billing calculation for all tenants in period 1 (active schluessel_engine)
+curl -s "$BASE/perioden/1/schluessel-abrechnung" | python3 -m json.tool
+# Response: {periode_id, liegenschaft_name, mieter: [{mieter_id, mieter_name, wohnung_bezeichnung,
+#            miettage, zeilen: [...], summe_kosten, vorauszahlung_ist, saldo, ...}]}
+# Note: saldo > 0 = Nachzahlung (tenant owes money); saldo < 0 = Guthaben (refund to tenant).
 
-# Get cost distribution across all tenants
-curl -s "$BASE/perioden/1/kostenverteilung" | python3 -m json.tool
-# Response: {summary: {...}, tenants: [{mieter_id, anzeigename, kostenanteil_gesamt,
-#            vorauszahlungen_gesamt, saldo, ...}]}
+# Generate single-tenant PDF statement (also saved into the period's PDF archive)
+curl -s -X POST "$BASE/perioden/1/mieter/1/schluessel-abrechnung/pdf" \
+  -H "Content-Type: application/json" \
+  -d '{"datum_anzeigen": true, "datum": "2026-11-15", "absender_anzeigen": true, "empfaenger_anzeigen": true}' \
+  --output abrechnung_mieter_1.pdf
 
-# Get detailed billing for a specific tenant
-curl -s "$BASE/perioden/1/mieter/1/abrechnung" | python3 -m json.tool
-# Response: full AbrechnungResult with individual cost positions, prepayments, and saldo
-# saldo > 0 = tenant gets money back; saldo < 0 = tenant owes more
+# Generate ZIP archive with ALL tenant PDFs in period 1
+curl -s -X POST "$BASE/perioden/1/schluessel-abrechnung/pdf-alle" \
+  -H "Content-Type: application/json" \
+  -d '{"datum_anzeigen": true, "datum": "2026-11-15", "absender_anzeigen": true, "empfaenger_anzeigen": true}' \
+  | python3 -m json.tool
+
+# List generated PDFs & ZIPs in the period's PDF archive (with timestamps & sizes)
+curl -s "$BASE/perioden/1/pdf-archiv" | python3 -m json.tool
+
+# Download or preview a file from the PDF archive
+curl -s "$BASE/perioden/1/pdf-archiv/Nebenkostenabrechnung_Muster.pdf?download=true" \
+  --output Nebenkostenabrechnung_Muster.pdf
+
+# Safe live simulation ("Ausprobieren"-Modus — rolls back transaction automatically)
+curl -s -X POST "$BASE/perioden/1/schluessel-abrechnung/vorschau" \
+  -H "Content-Type: application/json" \
+  -d '{"kostenart_saetze": {"1": {"preis_grund_pro_m2": 3.50, "preis_verbrauch_pro_einheit": 0.14}}}' \
+  | python3 -m json.tool
 ```
 
 ---
@@ -656,10 +734,10 @@ curl -s -X PUT "$BASE/vorauszahlungen/1" \
   -d '{"betrag_ist": 120.00, "bezahlt_am": "2024-01-05"}' | python3 -m json.tool
 ```
 
-### Workflow E: Run billing calculation
+### Workflow E: Check validation & inspect live billing results
 
 ```bash
-# 1. Check validation — must have 0 errors
+# 1. Check validation
 curl -s "$BASE/perioden/1/validierung" | python3 -c "
 import sys, json
 r = json.load(sys.stdin)['data']
@@ -667,27 +745,17 @@ print('Errors:', len(r['errors']))
 for e in r['errors']: print(f\"  ❌ {e['message']}\")
 print('Warnings:', len(r['warnings']))
 for w in r['warnings']: print(f\"  ⚠️  {w['message']}\")
-print('Can calculate:', r['kann_berechnen'])"
+print('Infos:', len(r.get('infos', [])))
+for i in r.get('infos', []): print(f\"  ℹ️  {i['message']}\")"
 
-# 2. If kann_berechnen is true, run calculation
-curl -s -X POST "$BASE/perioden/1/berechnen" | python3 -m json.tool
-
-# 3. View results
-curl -s "$BASE/perioden/1/kostenverteilung" | python3 -c "
+# 2. View live billing results (Direkt-Preise engine)
+curl -s "$BASE/perioden/1/schluessel-abrechnung" | python3 -c "
 import sys, json
 r = json.load(sys.stdin)['data']
-if r['summary']:
-    s = r['summary']
-    print(f\"Total costs: {s['gesamt_kosten']} €\")
-    print(f\"Tenant share: {s['mieter_anteil']} €\")
-print()
-for t in r['tenants']:
-    saldo = t['saldo']
-    arrow = '↓ Erstattung' if saldo > 0 else '↑ Nachzahlung'
-    print(f\"{t['anzeigename']:<30} Kosten: {t['kostenanteil_gesamt']:>8.2f} €  VZ: {t['vorauszahlungen_gesamt']:>8.2f} €  Saldo: {saldo:>8.2f} € {arrow}\")"
-
-# 4. Get individual tenant billing
-curl -s "$BASE/perioden/1/mieter/1/abrechnung" | python3 -m json.tool
+for m in r['mieter']:
+    saldo = m['saldo']
+    status = 'Nachzahlung' if saldo > 0 else 'Guthaben'
+    print(f\"{m['wohnung_bezeichnung']:<10} {m['mieter_name']:<28} Kosten: {m['summe_kosten']:>8.2f} €  VZ: {m['vorauszahlung_ist']:>8.2f} €  Saldo: {abs(saldo):>8.2f} € ({status})\")"
 ```
 
 ---
